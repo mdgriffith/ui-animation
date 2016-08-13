@@ -5,12 +5,12 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Time exposing (second)
-import Animation
+import Animation exposing (px)
 import Color exposing (green, complement)
 
 
 type alias Model =
-    { style : Style.Animation
+    { style : Animation.State Msg
     }
 
 
@@ -22,14 +22,12 @@ type Msg
 
 styles =
     { open =
-        [ left 0.0 px
-        , opacity 1.0
-        , color green
+        [ Animation.left (px 0.0)
+        , Animation.opacity 1.0
         ]
     , closed =
-        [ left -350.0 px
-        , opacity 0.0
-        , color green
+        [ Animation.left (px -350.0)
+        , Animation.opacity 0.0
         ]
     }
 
@@ -60,11 +58,15 @@ update action model =
             )
 
         Animate time ->
-            ( { model
-                | style = Style.tick time model.style
-              }
-            , Cmd.none
-            )
+            let
+                ( anim, msgs ) =
+                    Animation.tick time model.style
+            in
+                ( { model
+                    | style = anim
+                  }
+                , Cmd.none
+                )
 
 
 view : Model -> Html Msg
@@ -95,7 +97,7 @@ view model =
                  , ( "color", "white" )
                  , ( "border", "2px solid rgb(58,40,69)" )
                  ]
-                    ++ (Style.render model.style)
+                    ++ (Animation.render model.style)
                 )
             ]
             [ h1 [] [ text "Hidden Menu" ]
