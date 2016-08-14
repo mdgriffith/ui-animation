@@ -68,7 +68,7 @@ The alternative is to just require unitless values and only render as px values.
 
 ## Color via rgba
 
-The _RGB_ channels need to be floats.  Alpha is __required__ to be an int.
+The _RGB_ channels need to be floats.  RGB channels are __required__ to be ints.
 
 
 
