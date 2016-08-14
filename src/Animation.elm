@@ -1,4 +1,4 @@
-module Animation exposing (render, interrupt, queue, subscription, State, to, tick, style, color, opacity, left, px)
+module Animation exposing (render, interrupt, queue, wait, subscription, State, to, tick, style, top, color, opacity, rotate, translateY, translateX, left, px, deg, isRunning)
 
 import Color exposing (Color)
 import Time exposing (Time)
@@ -12,7 +12,7 @@ type State msg
         , style : List Property
         , timing : Timing
         , running : Bool
-        , interruption : Maybe ( Time, Animation msg )
+        , interruption : List ( Time, Animation msg )
         }
 
 
@@ -230,7 +230,7 @@ initialState current =
             , dt = 0
             }
         , running = False
-        , interruption = Nothing
+        , interruption = []
         }
 
 
@@ -265,36 +265,21 @@ queue steps (State model) =
         }
 
 
+{-|
+
+TODO: Should maintain a queue of interruptions, all unmodified.
+-}
 interrupt : Animation msg -> State msg -> State msg
 interrupt steps (State model) =
     let
         ( wait, remainingSteps ) =
             extractInitialWait steps
     in
-        if wait == 0 then
-            State
-                { model
-                    | steps = remainingSteps
-                    , running = True
-                }
-        else
-            case model.interruption of
-                Nothing ->
-                    State
-                        { model
-                            | interruption = Just ( wait, remainingSteps )
-                            , running = True
-                        }
-
-                Just ( interruptionTime, interruptionAnim ) ->
-                    if interruptionTime < wait then
-                        State model
-                    else
-                        State
-                            { model
-                                | interruption = Just ( wait, remainingSteps )
-                                , running = True
-                            }
+        State
+            { model
+                | interruption = ( wait, remainingSteps ) :: model.interruption
+                , running = True
+            }
 
 
 {-| Sums all leading `Wait` steps and removes them from the animation.
@@ -332,6 +317,14 @@ subscription (State model) msg =
         Sub.none
 
 
+{-| Used by Animation.Dict
+
+-}
+isRunning : State msg -> Bool
+isRunning (State model) =
+    model.running
+
+
 refreshTiming : Time -> Timing -> Timing
 refreshTiming now timing =
     let
@@ -362,26 +355,32 @@ tick now (State model) =
             refreshTiming now model.timing
 
         -- Resolve potential interrutions
-        ( interruption, queue ) =
-            case model.interruption of
-                Nothing ->
-                    ( Nothing, model.steps )
+        ( readyInterruption, queuedInterruptions ) =
+            List.map
+                (\( wait, steps ) ->
+                    ( wait - timing.dt, steps )
+                )
+                model.interruption
+                |> List.partition
+                    (\( wait, steps ) -> wait <= 0)
 
-                Just ( countDown, interr ) ->
-                    if countDown <= 0 then
-                        ( Nothing, interr )
-                    else
-                        ( Just ( countDown - timing.dt, interr )
-                        , model.steps
-                        )
+        -- if there are more than one matching interruptions,
+        -- we only take the first, which is the one that was most recently assigned.
+        queue =
+            case List.head readyInterruption of
+                Just ( wait, interrupt ) ->
+                    interrupt
+
+                Nothing ->
+                    model.steps
 
         ( revisedStyle, sentMessages, revisedQueue ) =
-            resolveQueue model.style model.steps timing.dt
+            resolveQueue model.style queue timing.dt
     in
         ( State
             { model
                 | timing = timing
-                , interruption = interruption
+                , interruption = queuedInterruptions
                 , running = List.length revisedQueue /= 0
                 , steps = revisedQueue
                 , style = revisedStyle
