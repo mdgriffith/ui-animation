@@ -354,12 +354,17 @@ initialState current =
         }
 
 
+{-| Set an initial style for an animation.
+
+Uses standard defaults for interpolation
+
+-}
 style : List Property -> State msg
 style props =
     initialState <| List.map setDefaultInterpolation props
 
 
-{-|
+{-| Set an initial style for an animation and override the standard default for interpolation.
 
 -}
 styleWith : Interpolation -> List Property -> State msg
@@ -367,9 +372,9 @@ styleWith interp props =
     initialState <| List.map (setInterpolation interp) props
 
 
-{-|
+{-| Set an initial style for an animation and specify the interpolation to be used for each property.
 
-
+Any property not listed will receive interpolation based on the standard defaults.
 -}
 styleWithEach : List ( Interpolation, Property ) -> State msg
 styleWithEach props =
@@ -1642,26 +1647,60 @@ smoothQuadraticTo points =
 
 arc : Arc -> PathCommand
 arc arc =
-    ArcCmd <| initArcMotion arc
+    ArcCmd <| initArcMotion arc False False
 
 
 arcTo : Arc -> PathCommand
 arcTo arc =
-    ArcTo <| initArcMotion arc
+    ArcTo <| initArcMotion arc False False
 
 
 {-| The same as `arc` except it goes the long way around the ellipse created.
 -}
 largeArc : Arc -> PathCommand
 largeArc arc =
-    LargeArc <| initArcMotion arc
+    Arc <| initArcMotion arc True True
 
 
 {-| The same as `arcTo` except it goes the long way around the ellipse created.
 -}
 largeArcTo : Arc -> PathCommand
 largeArcTo arc =
-    LargeArcTo <| initArcMotion arc
+    ArcTo <| initArcMotion arc True True
+
+
+{-| The same as `arc` except it goes the long way around the ellipse created.
+-}
+sweptArc : Arc -> PathCommand
+sweptArc arc =
+    Arc <| initArcMotion arc False True
+
+
+{-| The same as `arcTo` except it goes the long way around the ellipse created.
+-}
+sweptArcTo : Arc -> PathCommand
+sweptArcTo arc =
+    ArcTo <| initArcMotion arc False True
+
+
+{-| Expands an arc.
+
+Equivalent to a large, unswept arc.
+https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
+-}
+expandedArc : Arc -> PathCommand
+expandedArc arc =
+    Arc <| initArcMotion arc True False
+
+
+{-| Expands an arcTo.
+
+Equivalent to a large, unswept arc.
+https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
+-}
+expandedArcTo : Arc -> PathCommand
+expandedArcTo arc =
+    ArcTo <| initArcMotion arc True False
 
 
 close : PathCommand
@@ -1669,7 +1708,7 @@ close =
     Close
 
 
-{-| Describe a path.  To be used in conjunction with the D property for styling svg.
+{-| Describe a path.  To be used in conjunction with the 'd' property for styling svg.
 
 `To` versions of the commands are absolute, while others are relative.
 
@@ -1693,8 +1732,6 @@ type PathCommand
     | SmoothTo (List ( Motion, Motion ))
     | ArcCmd ArcMotion
     | ArcTo ArcMotion
-    | LargeArc ArcMotion
-    | LargeArcTo ArcMotion
     | Close
 
 
@@ -1704,7 +1741,6 @@ type alias Arc =
     , radiusX : Float
     , radiusY : Float
     , xAxisRotation : Float
-    , sweep : Bool
     }
 
 
@@ -1715,17 +1751,19 @@ type alias ArcMotion =
     , radiusY : Motion
     , xAxisRotation : Motion
     , sweep : Bool
+    , large : Bool
     }
 
 
 initArcMotion : Arc -> ArcMotion
-initArcMotion arc =
+initArcMotion arc large sweep =
     { x = initMotion arc.x
     , y = initMotion arc.y
     , radiusX = initMotion arc.x
     , radiusY = initMotion arc.y
     , xAxisRotation = initMotion arc.xAxisRotation
-    , sweep = arc.sweep
+    , sweep = sweep
+    , large = large
     }
 
 
