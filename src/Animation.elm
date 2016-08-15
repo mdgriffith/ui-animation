@@ -1,9 +1,37 @@
-module Animation exposing (render, interrupt, queue, wait, subscription, State, to, tick, style, top, color, opacity, rotate, translateY, translateX, left, px, deg, isRunning)
+module Animation
+    exposing
+        ( render
+        , interrupt
+        , queue
+        , wait
+        , subscription
+        , State
+        , to
+        , tick
+        , style
+        , top
+        , color
+        , fill
+        , opacity
+        , backgroundColor
+        , rotate
+        , translate
+        , translateY
+        , translateX
+        , points
+        , left
+        , px
+        , deg
+        , isRunning
+        )
 
 import Color exposing (Color)
 import Time exposing (Time)
 import AnimationFrame
 import String
+import Html
+import Html.Attributes
+import Svg.Attributes
 
 
 type State msg
@@ -29,9 +57,12 @@ type alias Animation msg =
 {-| Combine "transform" based properties into a single css property.
 
 -}
-render : State msg -> List ( String, String )
+render : State msg -> List (Html.Attribute msg)
 render (State model) =
     let
+        ( attrProps, styleProps ) =
+            List.partition isAttr model.style
+
         ( style, transforms ) =
             List.foldl
                 (\prop ( style, transforms ) ->
@@ -41,24 +72,40 @@ render (State model) =
                         ( prop :: style, transforms )
                 )
                 ( [], [] )
-                model.style
+                styleProps
 
         renderedStyle =
             List.map (\prop -> ( propertyName prop, propertyValue prop " " )) style
-    in
-        if List.length transforms == 0 then
-            renderedStyle
-        else
-            (( "transform"
-             , String.concat <|
-                List.map
-                    (\prop ->
-                        propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
+
+        styleAttr =
+            if List.length transforms == 0 then
+                Html.Attributes.style renderedStyle
+            else
+                Html.Attributes.style <|
+                    ( "transform"
+                    , String.concat <|
+                        List.map
+                            (\prop ->
+                                propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
+                            )
+                            transforms
                     )
-                    transforms
-             )
-                :: renderedStyle
-            )
+                        :: renderedStyle
+
+        otherAttrs =
+            List.filterMap renderAttrs attrProps
+    in
+        styleAttr :: otherAttrs
+
+
+renderAttrs : Property -> Maybe (Html.Attribute msg)
+renderAttrs prop =
+    case prop of
+        Points pts ->
+            Just <| Svg.Attributes.points <| propertyValue (Points pts) " "
+
+        _ ->
+            Nothing
 
 
 isTransformation : Property -> Bool
@@ -80,6 +127,18 @@ isTransformation prop =
         , "skewY"
         , "perspective"
         ]
+
+
+{-| This property can only be represented as an html attribute
+-}
+isAttr : Property -> Bool
+isAttr prop =
+    case prop of
+        Points _ ->
+            True
+
+        _ ->
+            False
 
 
 {-|
@@ -122,6 +181,7 @@ type Property
     | LengthProperty2 String Motion Motion LengthUnit LengthUnit
     | LengthProperty3 String Motion Motion Motion LengthUnit LengthUnit LengthUnit
     | AngleProperty String Motion AngleUnit
+    | Points (List ( Motion, Motion ))
 
 
 propertyName : Property -> String
@@ -144,6 +204,9 @@ propertyName prop =
 
         AngleProperty name _ _ ->
             name
+
+        Points _ ->
+            "points"
 
 
 propertyValue : Property -> String -> String
@@ -185,6 +248,14 @@ propertyValue prop delim =
 
         AngleProperty _ x unit ->
             toString x.position ++ angleUnitName unit
+
+        Points coords ->
+            List.map
+                (\( x, y ) ->
+                    toString x.position ++ "," ++ toString y.position
+                )
+                coords
+                |> String.join " "
 
 
 type alias Motion =
@@ -471,6 +542,9 @@ isDone property =
             AngleProperty _ m1 _ ->
                 motionDone m1
 
+            Points ms ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) ms
+
 
 {-| Set a new target for a style.
 If a property doesn't exist in the current style(listA), use a default instead.
@@ -540,6 +614,16 @@ setInterpolation interp prop =
                 { m1 | interpolation = interp }
                 unit
 
+        Points ms ->
+            Points <|
+                List.map
+                    (\( x, y ) ->
+                        ( { x | interpolation = interp }
+                        , { y | interpolation = interp }
+                        )
+                    )
+                    ms
+
 
 setTarget : Property -> Property -> Property
 setTarget current newTarget =
@@ -607,6 +691,26 @@ setTarget current newTarget =
                     AngleProperty name
                         { m1 | target = t1.position }
                         unit
+
+                _ ->
+                    current
+
+        Points currentPts ->
+            case newTarget of
+                Points targetPts ->
+                    let
+                        ( m1s, m2s ) =
+                            matchPoints currentPts targetPts
+                    in
+                        Points <|
+                            List.map2
+                                (\( x1, y1 ) ( x2, y2 ) ->
+                                    ( { x1 | target = x2.position }
+                                    , { y1 | target = y2.position }
+                                    )
+                                )
+                                m1s
+                                m2s
 
                 _ ->
                     current
@@ -702,6 +806,16 @@ step dt props =
                         (stepSpring dt green)
                         (stepSpring dt blue)
                         (stepSpring dt alpha)
+
+                Points points ->
+                    Points <|
+                        List.map
+                            (\( x, y ) ->
+                                ( stepSpring dt x
+                                , stepSpring dt y
+                                )
+                            )
+                            points
     in
         List.map stepProp props
 
@@ -828,6 +942,9 @@ default property =
 
         AngleProperty name _ unit ->
             angleProp name ( 0, unit )
+
+        Points pnts ->
+            Points <| List.map (\_ -> ( initMotion 0, initMotion 0 )) pnts
 
 
 type LengthUnit
@@ -1384,7 +1501,15 @@ radiusY ry =
 
 
 -- d : List (PathCommand a)
--- points : List ( Float, Float ) -> Property
+
+
+{-| Rendered as an attribute because it can't be represented as a style.
+-}
+points : List ( Float, Float ) -> Property
+points pnts =
+    Points <|
+        List.map (\( x, y ) -> ( initMotion x, initMotion y )) <|
+            alignStartingPoint pnts
 
 
 fill : Color -> Property
@@ -1433,3 +1558,35 @@ alignStartingPoint points =
 
             Just i ->
                 (List.drop i points) ++ (List.take i points)
+
+
+{-| Ensure that two lists of points have the same number
+of points by duplicating the last point of the smaller list.
+
+-}
+matchPoints : List ( Motion, Motion ) -> List ( Motion, Motion ) -> ( List ( Motion, Motion ), List ( Motion, Motion ) )
+matchPoints points1 points2 =
+    let
+        diff =
+            List.length points1 - List.length points2
+    in
+        if diff > 0 then
+            case List.head <| List.reverse points2 of
+                Nothing ->
+                    ( points1, points2 )
+
+                Just last2 ->
+                    ( points1
+                    , points2 ++ (List.repeat (abs diff) last2)
+                    )
+        else if diff < 0 then
+            case List.head <| List.reverse points1 of
+                Nothing ->
+                    ( points1, points2 )
+
+                Just last1 ->
+                    ( points1 ++ (List.repeat (abs diff) last1)
+                    , points2
+                    )
+        else
+            ( points1, points2 )

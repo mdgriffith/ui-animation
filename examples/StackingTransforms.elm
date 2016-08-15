@@ -32,10 +32,6 @@ update action model =
                         , Animation.to
                             [ Animation.translateY (px -200)
                             ]
-                          -- , Animation.update
-                          --     [ Animation.rotate identity Deg
-                          --     , Animation.rotate (\_ -> 360) Deg
-                          --     ]
                         , Animation.to
                             [ Animation.rotate (deg 380)
                             ]
