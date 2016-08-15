@@ -553,13 +553,19 @@ resolveQueue currentStyle steps dt =
                         )
 
                 Loop steps ->
-                    ( currentStyle, [], [] )
+                    resolveQueue
+                        currentStyle
+                        (steps ++ [ Loop steps ])
+                        dt
 
                 Repeat n steps ->
                     if n == 0 then
-                        ( currentStyle, [], [] )
+                        ( currentStyle, [], List.drop 1 steps )
                     else
-                        ( currentStyle, [], [] )
+                        resolveQueue
+                            currentStyle
+                            (steps ++ [ Repeat (n - 1) steps ])
+                            dt
 
 
 {-| Property is done?
