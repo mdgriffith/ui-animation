@@ -14,7 +14,8 @@ module Animation
         , fill
         , opacity
         , backgroundColor
-        , rotate
+        , borderColor
+        , rotateTo
         , translate
         , translateY
         , translateX
@@ -26,7 +27,7 @@ module Animation
         )
 
 import Color exposing (Color)
-import Time exposing (Time)
+import Time exposing (Time, second)
 import AnimationFrame
 import String
 import Html
@@ -162,14 +163,6 @@ type alias Style =
     List Property
 
 
-defaultInterpolation : Interpolation
-defaultInterpolation =
-    Spring
-        { stiffness = 170
-        , damping = 26
-        }
-
-
 {-| For each 'value' we track position, velocity, and target.
 Units are tracked separately to avoid parameterizing the `Motion` type
 Sorta ugly but I don't believe its a big deal.
@@ -182,6 +175,70 @@ type Property
     | LengthProperty3 String Motion Motion Motion LengthUnit LengthUnit LengthUnit
     | AngleProperty String Motion AngleUnit
     | Points (List ( Motion, Motion ))
+
+
+type alias Motion =
+    { position : Float
+    , velocity : Float
+    , target : Float
+    , interpolation : Interpolation
+    }
+
+
+defaultInterpolation : Interpolation
+defaultInterpolation =
+    Spring
+        { stiffness = 170
+        , damping = 26
+        }
+
+
+setDefaultInterpolation : Property -> Property
+setDefaultInterpolation prop =
+    let
+        interp =
+            defaultInterpolationByProperty prop
+    in
+        setInterpolation interp prop
+
+
+defaultInterpolationByProperty : Property -> Interpolation
+defaultInterpolationByProperty prop =
+    let
+        spring =
+            Spring
+                { stiffness = 170
+                , damping = 26
+                }
+
+        linear duration =
+            Easing
+                { progress = 0
+                , duration = duration
+                , ease = identity
+                }
+    in
+        case prop of
+            ColorProperty _ _ _ _ _ ->
+                linear (1 * second)
+
+            FloatProperty _ _ ->
+                spring
+
+            LengthProperty _ _ _ ->
+                spring
+
+            LengthProperty2 _ _ _ _ _ ->
+                spring
+
+            LengthProperty3 _ _ _ _ _ _ _ ->
+                spring
+
+            AngleProperty _ _ _ ->
+                linear (2 * second)
+
+            Points _ ->
+                spring
 
 
 propertyName : Property -> String
@@ -258,14 +315,6 @@ propertyValue prop delim =
                 |> String.join " "
 
 
-type alias Motion =
-    { position : Float
-    , velocity : Float
-    , target : Float
-    , interpolation : Interpolation
-    }
-
-
 wait : Time -> Step msg
 wait till =
     Wait till
@@ -307,7 +356,7 @@ initialState current =
 
 style : List Property -> State msg
 style props =
-    initialState <| props
+    initialState <| List.map setDefaultInterpolation props
 
 
 {-|
@@ -327,6 +376,9 @@ styleWithEach props =
     initialState <| List.map (\( interp, prop ) -> setInterpolation interp prop) props
 
 
+{-| Add an animation to the queue, execiting once the current animation finishes
+
+-}
 queue : Animation msg -> State msg -> State msg
 queue steps (State model) =
     State
@@ -336,24 +388,22 @@ queue steps (State model) =
         }
 
 
-{-|
+{-| Interrupt any running animations with the following animation.
 
-TODO: Should maintain a queue of interruptions, all unmodified.
 -}
 interrupt : Animation msg -> State msg -> State msg
 interrupt steps (State model) =
-    let
-        ( wait, remainingSteps ) =
-            extractInitialWait steps
-    in
-        State
-            { model
-                | interruption = ( wait, remainingSteps ) :: model.interruption
-                , running = True
-            }
+    State
+        { model
+            | interruption = extractInitialWait steps :: model.interruption
+            , running = True
+        }
 
 
 {-| Sums all leading `Wait` steps and removes them from the animation.
+
+This is used because the wait at the start of an interruption works differently than a normal wait.
+
 
 -}
 extractInitialWait : Animation msg -> ( Time, Animation msg )
@@ -1417,8 +1467,8 @@ scaleZ x =
     unitless "scale-z" x
 
 
-rotate : Angle -> Property
-rotate angle =
+rotateTo : Angle -> Property
+rotateTo angle =
     angleProp "rotate" angle
 
 
@@ -1499,8 +1549,164 @@ radiusY ry =
     unitless "ry" ry
 
 
+d : List (PathCommand) -> List (PathCommand)
+d commands =
+    commands
 
--- d : List (PathCommand a)
+
+move : Float -> Float -> PathCommand
+move x y =
+    Move (initMotion x) (initMotion y)
+
+
+moveTo : Float -> Float -> PathCommand
+moveTo x y =
+    MoveTo (initMotion x) (initMotion y)
+
+
+line : Float -> Float -> PathCommand
+line x y =
+    Line (initMotion x) (initMotion y)
+
+
+lineTo : Float -> Float -> PathCommand
+lineTo x y =
+    LineTo (initMotion x) (initMotion y)
+
+
+horizontal : Float -> PathCommand
+horizontal x =
+    Horizontal (initMotion x)
+
+
+horizontalTo : Float -> PathCommand
+horizontalTo x =
+    HorizontalTo (initMotion x)
+
+
+vertical : Float -> PathCommand
+vertical x =
+    Vertical (initMotion x)
+
+
+verticalTo : Float -> PathCommand
+verticalTo x =
+    VerticalTo (initMotion x)
+
+
+curve : List ( Float, Float ) -> PathCommand
+curve points =
+    Curve <| pointsProp points
+
+
+curveTo : List ( Float, Float ) -> PathCommand
+curveTo points =
+    CurveTo <| pointsProp points
+
+
+quadratic : List ( Float, Float ) -> PathCommand
+quadratic points =
+    Quadratic <| pointsProp points
+
+
+quadraticTo : List ( Float, Float ) -> PathCommand
+quadraticTo points =
+    QuadraticTo <| pointsProp points
+
+
+smooth : List ( Float, Float ) -> PathCommand
+smooth points =
+    Smooth <| pointsProp points
+
+
+smoothTo : List ( Float, Float ) -> PathCommand
+smoothTo points =
+    SmoothTo <| pointsProp points
+
+
+smoothQuadratic : List ( Float, Float ) -> PathCommand
+smoothQuadratic points =
+    SmoothQuadratic <| pointsProp points
+
+
+smoothQuadraticTo : List ( Float, Float ) -> PathCommand
+smoothQuadraticTo points =
+    SmoothQuadraticTo <| pointsProp points
+
+
+arc : Float -> Float -> Float -> Float -> PathCommand
+arc a b c d =
+    Arc
+        (initMotion a)
+        (initMotion b)
+        (initMotion c)
+        (initMotion d)
+
+
+arcTo : Float -> Float -> Float -> Float -> PathCommand
+arcTo a b c d =
+    ArcTo
+        (initMotion a)
+        (initMotion b)
+        (initMotion c)
+        (initMotion d)
+
+
+largeArc : Float -> Float -> Float -> Float -> PathCommand
+largeArc a b c d =
+    LargeArc
+        (initMotion a)
+        (initMotion b)
+        (initMotion c)
+        (initMotion d)
+
+
+largeArcTo : Float -> Float -> Float -> Float -> PathCommand
+largeArcTo a b c d =
+    LargeArcTo
+        (initMotion a)
+        (initMotion b)
+        (initMotion c)
+        (initMotion d)
+
+
+close : PathCommand
+close =
+    Close
+
+
+{-| Describe a path.  To be used in conjunction with the D property for styling svg.
+
+`To` versions of the commands are absolute, while others are relative.
+
+-}
+type PathCommand
+    = Move Motion Motion
+    | MoveTo Motion Motion
+    | Line Motion Motion
+    | LineTo Motion Motion
+    | Horizontal Motion
+    | HorizontalTo Motion
+    | Vertical Motion
+    | VerticalTo Motion
+    | Curve (List ( Motion, Motion ))
+    | CurveTo (List ( Motion, Motion ))
+    | Quadratic (List ( Motion, Motion ))
+    | QuadraticTo (List ( Motion, Motion ))
+    | SmoothQuadratic (List ( Motion, Motion ))
+    | SmoothQuadraticTo (List ( Motion, Motion ))
+    | Smooth (List ( Motion, Motion ))
+    | SmoothTo (List ( Motion, Motion ))
+    | Arc Motion Motion Motion Motion
+    | ArcTo Motion Motion Motion Motion
+    | LargeArc Motion Motion Motion Motion
+    | LargeArcTo Motion Motion Motion Motion
+    | Close
+
+
+pointsProp : List ( Float, Float ) -> List ( Motion, Motion )
+pointsProp pnts =
+    List.map (\( x, y ) -> ( initMotion x, initMotion y )) pnts
 
 
 {-| Rendered as an attribute because it can't be represented as a style.
@@ -1508,7 +1714,7 @@ radiusY ry =
 points : List ( Float, Float ) -> Property
 points pnts =
     Points <|
-        List.map (\( x, y ) -> ( initMotion x, initMotion y )) <|
+        pointsProp <|
             alignStartingPoint pnts
 
 

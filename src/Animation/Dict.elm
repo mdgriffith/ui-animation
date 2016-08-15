@@ -4,6 +4,7 @@ import Animation
 import AnimationFrame
 import Time exposing (Time)
 import Dict exposing (Dict)
+import Html
 
 
 type alias StyleDict id msg =
@@ -35,7 +36,7 @@ tick time dict =
         dict
 
 
-render : StyleDict id msg -> id -> List ( String, String )
+render : StyleDict id msg -> id -> List Html.Attribute
 render dict id =
     case Dict.get dict id of
         Just style ->
@@ -43,13 +44,3 @@ render dict id =
 
         Nothing ->
             []
-
-
-update : (id -> Animation.State msg -> Animation.State msg) -> StyleDict id msg -> StyleDict id msg
-update fn dict =
-    Dict.map fn dict
-
-
-style : List ( id, Animation.State msg ) -> StyleDict id msg
-style styles =
-    Dict.fromList styles
