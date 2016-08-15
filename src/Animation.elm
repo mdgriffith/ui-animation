@@ -1640,40 +1640,28 @@ smoothQuadraticTo points =
     SmoothQuadraticTo <| pointsProp points
 
 
-arc : Float -> Float -> Float -> Float -> PathCommand
-arc a b c d =
-    Arc
-        (initMotion a)
-        (initMotion b)
-        (initMotion c)
-        (initMotion d)
+arc : Arc -> PathCommand
+arc arc =
+    ArcCmd <| initArcMotion arc
 
 
-arcTo : Float -> Float -> Float -> Float -> PathCommand
-arcTo a b c d =
-    ArcTo
-        (initMotion a)
-        (initMotion b)
-        (initMotion c)
-        (initMotion d)
+arcTo : Arc -> PathCommand
+arcTo arc =
+    ArcTo <| initArcMotion arc
 
 
-largeArc : Float -> Float -> Float -> Float -> PathCommand
-largeArc a b c d =
-    LargeArc
-        (initMotion a)
-        (initMotion b)
-        (initMotion c)
-        (initMotion d)
+{-| The same as `arc` except it goes the long way around the ellipse created.
+-}
+largeArc : Arc -> PathCommand
+largeArc arc =
+    LargeArc <| initArcMotion arc
 
 
-largeArcTo : Float -> Float -> Float -> Float -> PathCommand
-largeArcTo a b c d =
-    LargeArcTo
-        (initMotion a)
-        (initMotion b)
-        (initMotion c)
-        (initMotion d)
+{-| The same as `arcTo` except it goes the long way around the ellipse created.
+-}
+largeArcTo : Arc -> PathCommand
+largeArcTo arc =
+    LargeArcTo <| initArcMotion arc
 
 
 close : PathCommand
@@ -1703,11 +1691,42 @@ type PathCommand
     | SmoothQuadraticTo (List ( Motion, Motion ))
     | Smooth (List ( Motion, Motion ))
     | SmoothTo (List ( Motion, Motion ))
-    | Arc Motion Motion Motion Motion
-    | ArcTo Motion Motion Motion Motion
-    | LargeArc Motion Motion Motion Motion
-    | LargeArcTo Motion Motion Motion Motion
+    | ArcCmd ArcMotion
+    | ArcTo ArcMotion
+    | LargeArc ArcMotion
+    | LargeArcTo ArcMotion
     | Close
+
+
+type alias Arc =
+    { x : Float
+    , y : Float
+    , radiusX : Float
+    , radiusY : Float
+    , xAxisRotation : Float
+    , sweep : Bool
+    }
+
+
+type alias ArcMotion =
+    { x : Motion
+    , y : Motion
+    , radiusX : Motion
+    , radiusY : Motion
+    , xAxisRotation : Motion
+    , sweep : Bool
+    }
+
+
+initArcMotion : Arc -> ArcMotion
+initArcMotion arc =
+    { x = initMotion arc.x
+    , y = initMotion arc.y
+    , radiusX = initMotion arc.x
+    , radiusY = initMotion arc.y
+    , xAxisRotation = initMotion arc.xAxisRotation
+    , sweep = arc.sweep
+    }
 
 
 pointsProp : List ( Float, Float ) -> List ( Motion, Motion )
