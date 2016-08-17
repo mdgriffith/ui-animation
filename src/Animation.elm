@@ -20,6 +20,18 @@ module Animation
         , translateY
         , translateX
         , points
+        , path
+        , move
+        , moveTo
+        , close
+        , curve
+        , curveTo
+        , quadratic
+        , quadraticTo
+        , smooth
+        , smoothTo
+        , smoothQuadratic
+        , smoothQuadraticTo
         , left
         , px
         , deg
@@ -105,6 +117,9 @@ renderAttrs prop =
         Points pts ->
             Just <| Svg.Attributes.points <| propertyValue (Points pts) " "
 
+        Path cmds ->
+            Just <| Svg.Attributes.d <| propertyValue (Path cmds) " "
+
         _ ->
             Nothing
 
@@ -138,6 +153,9 @@ isAttr prop =
         Points _ ->
             True
 
+        Path _ ->
+            True
+
         _ ->
             False
 
@@ -164,8 +182,6 @@ type alias Style =
 
 
 {-| For each 'value' we track position, velocity, and target.
-Units are tracked separately to avoid parameterizing the `Motion` type
-Sorta ugly but I don't believe its a big deal.
 -}
 type Property
     = ColorProperty String Motion Motion Motion Motion
@@ -175,6 +191,7 @@ type Property
     | LengthProperty3 String Motion Motion Motion LengthUnit LengthUnit LengthUnit
     | AngleProperty String Motion AngleUnit
     | Points (List ( Motion, Motion ))
+    | Path (List PathCommand)
 
 
 type alias Motion =
@@ -240,6 +257,9 @@ defaultInterpolationByProperty prop =
             Points _ ->
                 spring
 
+            Path _ ->
+                spring
+
 
 propertyName : Property -> String
 propertyName prop =
@@ -264,6 +284,9 @@ propertyName prop =
 
         Points _ ->
             "points"
+
+        Path _ ->
+            "path"
 
 
 propertyValue : Property -> String -> String
@@ -307,12 +330,128 @@ propertyValue prop delim =
             toString x.position ++ angleUnitName unit
 
         Points coords ->
-            List.map
-                (\( x, y ) ->
-                    toString x.position ++ "," ++ toString y.position
-                )
-                coords
-                |> String.join " "
+            String.join " " <|
+                List.map
+                    (\( x, y ) ->
+                        toString x.position ++ "," ++ toString y.position
+                    )
+                    coords
+
+        Path cmds ->
+            String.join " " <|
+                List.map cmdValue cmds
+
+
+cmdValue : PathCommand -> String
+cmdValue cmd =
+    let
+        renderPoints coords =
+            String.join " " <|
+                List.map
+                    (\( x, y ) ->
+                        toString x.position ++ "," ++ toString y.position
+                    )
+                    coords
+    in
+        case cmd of
+            Move x y ->
+                "m " ++ toString x.position ++ "," ++ toString y.position
+
+            MoveTo x y ->
+                "M " ++ toString x.position ++ "," ++ toString y.position
+
+            Line x y ->
+                "l " ++ toString x.position ++ "," ++ toString y.position
+
+            LineTo x y ->
+                "L " ++ toString x.position ++ "," ++ toString y.position
+
+            Horizontal a ->
+                "h " ++ toString a.position
+
+            HorizontalTo a ->
+                "H " ++ toString a.position
+
+            Vertical a ->
+                "v " ++ toString a.position
+
+            VerticalTo a ->
+                "V " ++ toString a.position
+
+            Curve points ->
+                "c " ++ renderPoints points
+
+            CurveTo points ->
+                "C " ++ renderPoints points
+
+            Quadratic points ->
+                "q " ++ renderPoints points
+
+            QuadraticTo points ->
+                "Q " ++ renderPoints points
+
+            SmoothQuadratic points ->
+                "t " ++ renderPoints points
+
+            SmoothQuadraticTo points ->
+                "T " ++ renderPoints points
+
+            Smooth points ->
+                "s " ++ renderPoints points
+
+            SmoothTo points ->
+                "S " ++ renderPoints points
+
+            ArcCmd arc ->
+                "a "
+                    ++ toString arc.radiusX.position
+                    ++ ","
+                    ++ toString arc.radiusY.position
+                    ++ " "
+                    ++ toString arc.xAxisRotation.position
+                    ++ " "
+                    ++ (if arc.large then
+                            "1"
+                        else
+                            "0"
+                       )
+                    ++ " "
+                    ++ (if arc.sweep then
+                            "1"
+                        else
+                            "0"
+                       )
+                    ++ " "
+                    ++ toString arc.x.position
+                    ++ ","
+                    ++ toString arc.y.position
+
+            ArcTo arc ->
+                "A "
+                    ++ toString arc.radiusX.position
+                    ++ ","
+                    ++ toString arc.radiusY.position
+                    ++ " "
+                    ++ toString arc.xAxisRotation.position
+                    ++ " "
+                    ++ (if arc.large then
+                            "1"
+                        else
+                            "0"
+                       )
+                    ++ " "
+                    ++ (if arc.sweep then
+                            "1"
+                        else
+                            "0"
+                       )
+                    ++ " "
+                    ++ toString arc.x.position
+                    ++ ","
+                    ++ toString arc.y.position
+
+            Close ->
+                "z"
 
 
 wait : Time -> Step msg
@@ -606,6 +745,82 @@ isDone property =
             Points ms ->
                 List.all (\( x, y ) -> motionDone x && motionDone y) ms
 
+            Path cmds ->
+                List.all isCmdDone cmds
+
+
+isCmdDone : PathCommand -> Bool
+isCmdDone cmd =
+    let
+        motionDone motion =
+            motion.velocity == 0 && motion.position == motion.target
+    in
+        case cmd of
+            Move m1 m2 ->
+                motionDone m1 && motionDone m2
+
+            MoveTo m1 m2 ->
+                motionDone m1 && motionDone m2
+
+            Line m1 m2 ->
+                motionDone m1 && motionDone m2
+
+            LineTo m1 m2 ->
+                motionDone m1 && motionDone m2
+
+            Horizontal motion ->
+                motionDone motion
+
+            HorizontalTo motion ->
+                motionDone motion
+
+            Vertical motion ->
+                motionDone motion
+
+            VerticalTo motion ->
+                motionDone motion
+
+            Curve coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            CurveTo coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            Quadratic coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            QuadraticTo coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            SmoothQuadratic coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            SmoothQuadraticTo coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            Smooth coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            SmoothTo coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            ArcCmd arc ->
+                motionDone arc.x
+                    && motionDone arc.y
+                    && motionDone arc.radiusX
+                    && motionDone arc.radiusY
+                    && motionDone arc.xAxisRotation
+
+            ArcTo arc ->
+                motionDone arc.x
+                    && motionDone arc.y
+                    && motionDone arc.radiusX
+                    && motionDone arc.radiusY
+                    && motionDone arc.xAxisRotation
+
+            Close ->
+                True
+
 
 {-| Set a new target for a style.
 If a property doesn't exist in the current style(listA), use a default instead.
@@ -684,6 +899,141 @@ setInterpolation interp prop =
                         )
                     )
                     ms
+
+        Path cmds ->
+            Path <|
+                List.map
+                    (setPathInterpolation interp)
+                    cmds
+
+
+setPathInterpolation : Interpolation -> PathCommand -> PathCommand
+setPathInterpolation interp cmd =
+    let
+        setCoordInterp coords =
+            List.map
+                (\( x, y ) ->
+                    ( { x | interpolation = interp }
+                    , { y | interpolation = interp }
+                    )
+                )
+                coords
+    in
+        case cmd of
+            Move m1 m2 ->
+                Move
+                    { m1 | interpolation = interp }
+                    { m2 | interpolation = interp }
+
+            MoveTo m1 m2 ->
+                MoveTo
+                    { m1 | interpolation = interp }
+                    { m2 | interpolation = interp }
+
+            Line m1 m2 ->
+                Line
+                    { m1 | interpolation = interp }
+                    { m2 | interpolation = interp }
+
+            LineTo m1 m2 ->
+                LineTo
+                    { m1 | interpolation = interp }
+                    { m2 | interpolation = interp }
+
+            Horizontal motion ->
+                Horizontal
+                    { motion | interpolation = interp }
+
+            HorizontalTo motion ->
+                HorizontalTo
+                    { motion | interpolation = interp }
+
+            Vertical motion ->
+                Vertical
+                    { motion | interpolation = interp }
+
+            VerticalTo motion ->
+                VerticalTo
+                    { motion | interpolation = interp }
+
+            Curve coords ->
+                Curve <| setCoordInterp coords
+
+            CurveTo coords ->
+                CurveTo <| setCoordInterp coords
+
+            Quadratic coords ->
+                Quadratic <| setCoordInterp coords
+
+            QuadraticTo coords ->
+                QuadraticTo <| setCoordInterp coords
+
+            SmoothQuadratic coords ->
+                SmoothQuadratic <| setCoordInterp coords
+
+            SmoothQuadraticTo coords ->
+                SmoothQuadraticTo <| setCoordInterp coords
+
+            Smooth coords ->
+                Smooth <| setCoordInterp coords
+
+            SmoothTo coords ->
+                SmoothTo <| setCoordInterp coords
+
+            ArcCmd arc ->
+                ArcCmd <|
+                    let
+                        x =
+                            arc.x
+
+                        y =
+                            arc.y
+
+                        radiusX =
+                            arc.radiusX
+
+                        radiusY =
+                            arc.radiusY
+
+                        xAxis =
+                            arc.xAxisRotation
+                    in
+                        { arc
+                            | x = { x | interpolation = interp }
+                            , y = { y | interpolation = interp }
+                            , radiusX = { radiusX | interpolation = interp }
+                            , radiusY = { radiusY | interpolation = interp }
+                            , xAxisRotation = { xAxis | interpolation = interp }
+                        }
+
+            ArcTo arc ->
+                ArcTo <|
+                    let
+                        x =
+                            arc.x
+
+                        y =
+                            arc.y
+
+                        radiusX =
+                            arc.radiusX
+
+                        radiusY =
+                            arc.radiusY
+
+                        xAxis =
+                            arc.xAxisRotation
+                    in
+                        { arc
+                            | x = { x | interpolation = interp }
+                            , y = { y | interpolation = interp }
+                            , radiusX = { radiusX | interpolation = interp }
+                            , radiusY = { radiusY | interpolation = interp }
+                            , xAxisRotation = { xAxis | interpolation = interp }
+                        }
+
+            Close ->
+                Close
 
 
 setTarget : Property -> Property -> Property
@@ -772,6 +1122,19 @@ setTarget current newTarget =
                                 )
                                 m1s
                                 m2s
+
+                _ ->
+                    current
+
+        --
+        Path cmds ->
+            case newTarget of
+                Path targets ->
+                    Path <|
+                        List.map2
+                            setPathTarget
+                            cmds
+                            targets
 
                 _ ->
                     current
@@ -877,8 +1240,109 @@ step dt props =
                                 )
                             )
                             points
+
+                Path cmds ->
+                    Path <|
+                        List.map (stepPath dt) cmds
     in
         List.map stepProp props
+
+
+stepPath : Time -> PathCommand -> PathCommand
+stepPath dt cmd =
+    let
+        stepCoords coords =
+            List.map
+                (\( x, y ) ->
+                    ( stepSpring dt x
+                    , stepSpring dt y
+                    )
+                )
+                coords
+    in
+        case cmd of
+            Move m1 m2 ->
+                Move
+                    (stepSpring dt m1)
+                    (stepSpring dt m2)
+
+            MoveTo m1 m2 ->
+                MoveTo
+                    (stepSpring dt m1)
+                    (stepSpring dt m2)
+
+            Line m1 m2 ->
+                Line
+                    (stepSpring dt m1)
+                    (stepSpring dt m2)
+
+            LineTo m1 m2 ->
+                LineTo
+                    (stepSpring dt m1)
+                    (stepSpring dt m2)
+
+            Horizontal motion ->
+                Horizontal
+                    (stepSpring dt motion)
+
+            HorizontalTo motion ->
+                HorizontalTo
+                    (stepSpring dt motion)
+
+            Vertical motion ->
+                Vertical
+                    (stepSpring dt motion)
+
+            VerticalTo motion ->
+                VerticalTo
+                    (stepSpring dt motion)
+
+            Curve coords ->
+                Curve <| stepCoords coords
+
+            CurveTo coords ->
+                CurveTo <| stepCoords coords
+
+            Quadratic coords ->
+                Quadratic <| stepCoords coords
+
+            QuadraticTo coords ->
+                QuadraticTo <| stepCoords coords
+
+            SmoothQuadratic coords ->
+                SmoothQuadratic <| stepCoords coords
+
+            SmoothQuadraticTo coords ->
+                SmoothQuadraticTo <| stepCoords coords
+
+            Smooth coords ->
+                Smooth <| stepCoords coords
+
+            SmoothTo coords ->
+                SmoothTo <| stepCoords coords
+
+            ArcCmd arc ->
+                ArcCmd <|
+                    { arc
+                        | x = stepSpring dt arc.x
+                        , y = stepSpring dt arc.y
+                        , radiusX = stepSpring dt arc.radiusX
+                        , radiusY = stepSpring dt arc.radiusY
+                        , xAxisRotation = stepSpring dt arc.xAxisRotation
+                    }
+
+            ArcTo arc ->
+                ArcTo <|
+                    { arc
+                        | x = stepSpring dt arc.x
+                        , y = stepSpring dt arc.y
+                        , radiusX = stepSpring dt arc.radiusX
+                        , radiusY = stepSpring dt arc.radiusY
+                        , xAxisRotation = stepSpring dt arc.xAxisRotation
+                    }
+
+            Close ->
+                Close
 
 
 tolerance =
@@ -981,6 +1445,7 @@ stepSpring dtms motion =
 
 {-| Given a property, return the same property with the value set to a default.
 
+TODO: Path property could have a more intelligent default
 -}
 default : Property -> Property
 default property =
@@ -1006,6 +1471,9 @@ default property =
 
         Points pnts ->
             Points <| List.map (\_ -> ( initMotion 0, initMotion 0 )) pnts
+
+        Path cmds ->
+            Path []
 
 
 type LengthUnit
@@ -1560,9 +2028,9 @@ radiusY ry =
     unitless "ry" ry
 
 
-d : List (PathCommand) -> List (PathCommand)
-d commands =
-    commands
+path : List (PathCommand) -> Property
+path commands =
+    Path commands
 
 
 move : Float -> Float -> PathCommand
@@ -1659,7 +2127,7 @@ arcTo arc =
 -}
 largeArc : Arc -> PathCommand
 largeArc arc =
-    Arc <| initArcMotion arc True True
+    ArcCmd <| initArcMotion arc True True
 
 
 {-| The same as `arcTo` except it goes the long way around the ellipse created.
@@ -1673,7 +2141,7 @@ largeArcTo arc =
 -}
 sweptArc : Arc -> PathCommand
 sweptArc arc =
-    Arc <| initArcMotion arc False True
+    ArcCmd <| initArcMotion arc False True
 
 
 {-| The same as `arcTo` except it goes the long way around the ellipse created.
@@ -1690,7 +2158,7 @@ https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
 -}
 expandedArc : Arc -> PathCommand
 expandedArc arc =
-    Arc <| initArcMotion arc True False
+    ArcCmd <| initArcMotion arc True False
 
 
 {-| Expands an arcTo.
@@ -1755,7 +2223,280 @@ type alias ArcMotion =
     }
 
 
-initArcMotion : Arc -> ArcMotion
+setPathTarget : PathCommand -> PathCommand -> PathCommand
+setPathTarget cmd targetCmd =
+    case cmd of
+        Move m1 m2 ->
+            case targetCmd of
+                Move t1 t2 ->
+                    Move
+                        { m1 | target = t1.position }
+                        { m2 | target = t2.position }
+
+                _ ->
+                    cmd
+
+        MoveTo m1 m2 ->
+            case targetCmd of
+                MoveTo t1 t2 ->
+                    MoveTo
+                        { m1 | target = t1.position }
+                        { m2 | target = t2.position }
+
+                _ ->
+                    cmd
+
+        Line m1 m2 ->
+            case targetCmd of
+                Line t1 t2 ->
+                    Line
+                        { m1 | target = t1.position }
+                        { m2 | target = t2.position }
+
+                _ ->
+                    cmd
+
+        LineTo m1 m2 ->
+            case targetCmd of
+                LineTo t1 t2 ->
+                    LineTo
+                        { m1 | target = t1.position }
+                        { m2 | target = t2.position }
+
+                _ ->
+                    cmd
+
+        Horizontal motion ->
+            case targetCmd of
+                Horizontal target ->
+                    Horizontal
+                        { motion | target = target.position }
+
+                _ ->
+                    cmd
+
+        HorizontalTo motion ->
+            case targetCmd of
+                HorizontalTo target ->
+                    HorizontalTo
+                        { motion | target = target.position }
+
+                _ ->
+                    cmd
+
+        Vertical motion ->
+            case targetCmd of
+                Vertical target ->
+                    Vertical
+                        { motion | target = target.position }
+
+                _ ->
+                    cmd
+
+        VerticalTo motion ->
+            case targetCmd of
+                VerticalTo target ->
+                    VerticalTo
+                        { motion | target = target.position }
+
+                _ ->
+                    cmd
+
+        Curve coords ->
+            case targetCmd of
+                Curve targetCoords ->
+                    Curve <|
+                        List.map2
+                            (\( x1, y1 ) ( x2, y2 ) ->
+                                ( { x1 | target = x2.position }
+                                , { y1 | target = y2.position }
+                                )
+                            )
+                            coords
+                            targetCoords
+
+                _ ->
+                    cmd
+
+        CurveTo coords ->
+            case targetCmd of
+                CurveTo targetCoords ->
+                    CurveTo <|
+                        List.map2
+                            (\( x1, y1 ) ( x2, y2 ) ->
+                                ( { x1 | target = x2.position }
+                                , { y1 | target = y2.position }
+                                )
+                            )
+                            coords
+                            targetCoords
+
+                _ ->
+                    cmd
+
+        Quadratic coords ->
+            case targetCmd of
+                Quadratic targetCoords ->
+                    Quadratic <|
+                        List.map2
+                            (\( x1, y1 ) ( x2, y2 ) ->
+                                ( { x1 | target = x2.position }
+                                , { y1 | target = y2.position }
+                                )
+                            )
+                            coords
+                            targetCoords
+
+                _ ->
+                    cmd
+
+        QuadraticTo coords ->
+            case targetCmd of
+                QuadraticTo targetCoords ->
+                    QuadraticTo <|
+                        List.map2
+                            (\( x1, y1 ) ( x2, y2 ) ->
+                                ( { x1 | target = x2.position }
+                                , { y1 | target = y2.position }
+                                )
+                            )
+                            coords
+                            targetCoords
+
+                _ ->
+                    cmd
+
+        SmoothQuadratic coords ->
+            case targetCmd of
+                SmoothQuadratic targetCoords ->
+                    SmoothQuadratic <|
+                        List.map2
+                            (\( x1, y1 ) ( x2, y2 ) ->
+                                ( { x1 | target = x2.position }
+                                , { y1 | target = y2.position }
+                                )
+                            )
+                            coords
+                            targetCoords
+
+                _ ->
+                    cmd
+
+        SmoothQuadraticTo coords ->
+            case targetCmd of
+                SmoothQuadraticTo targetCoords ->
+                    SmoothQuadraticTo <|
+                        List.map2
+                            (\( x1, y1 ) ( x2, y2 ) ->
+                                ( { x1 | target = x2.position }
+                                , { y1 | target = y2.position }
+                                )
+                            )
+                            coords
+                            targetCoords
+
+                _ ->
+                    cmd
+
+        Smooth coords ->
+            case targetCmd of
+                Smooth targetCoords ->
+                    Smooth <|
+                        List.map2
+                            (\( x1, y1 ) ( x2, y2 ) ->
+                                ( { x1 | target = x2.position }
+                                , { y1 | target = y2.position }
+                                )
+                            )
+                            coords
+                            targetCoords
+
+                _ ->
+                    cmd
+
+        SmoothTo coords ->
+            case targetCmd of
+                SmoothTo targetCoords ->
+                    SmoothTo <|
+                        List.map2
+                            (\( x1, y1 ) ( x2, y2 ) ->
+                                ( { x1 | target = x2.position }
+                                , { y1 | target = y2.position }
+                                )
+                            )
+                            coords
+                            targetCoords
+
+                _ ->
+                    cmd
+
+        ArcCmd arc ->
+            case targetCmd of
+                ArcCmd target ->
+                    ArcCmd <|
+                        let
+                            x =
+                                arc.x
+
+                            y =
+                                arc.y
+
+                            radiusX =
+                                arc.radiusX
+
+                            radiusY =
+                                arc.radiusY
+
+                            xAxis =
+                                arc.xAxisRotation
+                        in
+                            { arc
+                                | x = { x | target = target.x.position }
+                                , y = { y | target = target.y.position }
+                                , radiusX = { radiusX | target = target.radiusX.position }
+                                , radiusY = { radiusY | target = target.radiusY.position }
+                                , xAxisRotation = { xAxis | target = target.xAxisRotation.position }
+                            }
+
+                _ ->
+                    cmd
+
+        ArcTo arc ->
+            case targetCmd of
+                ArcTo target ->
+                    ArcTo <|
+                        let
+                            x =
+                                arc.x
+
+                            y =
+                                arc.y
+
+                            radiusX =
+                                arc.radiusX
+
+                            radiusY =
+                                arc.radiusY
+
+                            xAxis =
+                                arc.xAxisRotation
+                        in
+                            { arc
+                                | x = { x | target = target.x.position }
+                                , y = { y | target = target.y.position }
+                                , radiusX = { radiusX | target = target.radiusX.position }
+                                , radiusY = { radiusY | target = target.radiusY.position }
+                                , xAxisRotation = { xAxis | target = target.xAxisRotation.position }
+                            }
+
+                _ ->
+                    cmd
+
+        Close ->
+            Close
+
+
+initArcMotion : Arc -> Bool -> Bool -> ArcMotion
 initArcMotion arc large sweep =
     { x = initMotion arc.x
     , y = initMotion arc.y
