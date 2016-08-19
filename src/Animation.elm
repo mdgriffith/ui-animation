@@ -9,10 +9,13 @@ module Animation
         , to
         , tick
         , style
+        , opacity
         , top
+        , left
+        , right
+        , bottom
         , color
         , fill
-        , opacity
         , backgroundColor
         , borderColor
         , rotateTo
@@ -32,7 +35,6 @@ module Animation
         , smoothTo
         , smoothQuadratic
         , smoothQuadraticTo
-        , left
         , px
         , deg
         , isRunning
@@ -173,8 +175,15 @@ type Step msg
 
 
 type Interpolation
-    = Spring { stiffness : Float, damping : Float }
-    | Easing { progress : Float, duration : Time, ease : Float -> Float }
+    = Spring
+        { stiffness : Float
+        , damping : Float
+        }
+    | Easing
+        { progress : Float
+        , duration : Time
+        , ease : Float -> Float
+        }
 
 
 type alias Style =
@@ -184,7 +193,8 @@ type alias Style =
 {-| For each 'value' we track position, velocity, and target.
 -}
 type Property
-    = ColorProperty String Motion Motion Motion Motion
+    = Display DisplayMode
+    | ColorProperty String Motion Motion Motion Motion
     | FloatProperty String Motion
     | LengthProperty String Motion LengthUnit
     | LengthProperty2 String Motion Motion LengthUnit LengthUnit
@@ -200,6 +210,44 @@ type alias Motion =
     , target : Float
     , interpolation : Interpolation
     }
+
+
+{-| A Display value used for the display property.
+A display mode is not animated but can be set using Html.Animation.set
+-}
+type DisplayMode
+    = None
+    | Inline
+    | InlineBlock
+    | Block
+    | Flex
+    | InlineFlex
+    | ListItem
+
+
+displayModeName : DisplayMode -> String
+displayModeName mode =
+    case mode of
+        None ->
+            "none"
+
+        Inline ->
+            "inline"
+
+        InlineBlock ->
+            "inline-block"
+
+        Block ->
+            "block"
+
+        Flex ->
+            "flex"
+
+        InlineFlex ->
+            "inline-flex"
+
+        ListItem ->
+            "list-item"
 
 
 defaultInterpolation : Interpolation
@@ -236,6 +284,9 @@ defaultInterpolationByProperty prop =
                 }
     in
         case prop of
+            Display _ ->
+                spring
+
             ColorProperty _ _ _ _ _ ->
                 linear (1 * second)
 
@@ -264,6 +315,9 @@ defaultInterpolationByProperty prop =
 propertyName : Property -> String
 propertyName prop =
     case prop of
+        Display _ ->
+            "display"
+
         ColorProperty name _ _ _ _ ->
             name
 
@@ -292,6 +346,9 @@ propertyName prop =
 propertyValue : Property -> String -> String
 propertyValue prop delim =
     case prop of
+        Display mode ->
+            displayModeName mode
+
         ColorProperty _ r g b a ->
             "rgba("
                 ++ toString (round r.position)
@@ -724,6 +781,9 @@ isDone property =
             motion.velocity == 0 && motion.position == motion.target
     in
         case property of
+            Display _ ->
+                True
+
             ColorProperty _ m1 m2 m3 m4 ->
                 List.all motionDone [ m1, m2, m3, m4 ]
 
@@ -853,6 +913,9 @@ startTowards current target =
 setInterpolation : Interpolation -> Property -> Property
 setInterpolation interp prop =
     case prop of
+        Display mode ->
+            Display mode
+
         ColorProperty name m1 m2 m3 m4 ->
             ColorProperty name
                 { m1 | interpolation = interp }
@@ -1039,6 +1102,9 @@ setPathInterpolation interp cmd =
 setTarget : Property -> Property -> Property
 setTarget current newTarget =
     case current of
+        Display mode ->
+            Display mode
+
         ColorProperty name m1 m2 m3 m4 ->
             case newTarget of
                 ColorProperty _ t1 t2 t3 t4 ->
@@ -1199,6 +1265,9 @@ step dt props =
     let
         stepProp property =
             case property of
+                Display mode ->
+                    Display mode
+
                 FloatProperty name motion ->
                     FloatProperty name (stepSpring dt motion)
 
@@ -1450,6 +1519,9 @@ TODO: Path property could have a more intelligent default
 default : Property -> Property
 default property =
     case property of
+        Display mode ->
+            Display Block
+
         ColorProperty name _ _ _ _ ->
             Debug.log (name ++ " has no initial value.  Defaulting to transparent white.") <|
                 colorProp name (Color.rgba 255 255 255 0)
