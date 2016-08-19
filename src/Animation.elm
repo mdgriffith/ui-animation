@@ -7,13 +7,26 @@ module Animation
         , subscription
         , State
         , to
+        , set
         , tick
         , style
+        , styleWith
+        , styleWithEach
         , opacity
         , top
         , left
         , right
         , bottom
+        , padding
+        , paddingLeft
+        , paddingRight
+        , paddingTop
+        , paddingBottom
+        , margin
+        , marginLeft
+        , marginRight
+        , marginTop
+        , marginBottom
         , color
         , fill
         , backgroundColor
@@ -167,6 +180,7 @@ isAttr prop =
 -}
 type Step msg
     = To (List Property)
+    | Set (List Property)
     | Step
     | Wait Time
     | Send msg
@@ -521,6 +535,11 @@ to props =
     To props
 
 
+set : List Property -> Step msg
+set props =
+    Set props
+
+
 send : msg -> Step msg
 send msg =
     Send msg
@@ -740,6 +759,13 @@ resolveQueue currentStyle steps dt =
                         (Step :: List.drop 1 steps)
                         dt
 
+                Set props ->
+                    let
+                        replaced =
+                            replaceProps currentStyle props
+                    in
+                        resolveQueue replaced (List.drop 1 steps) dt
+
                 Step ->
                     let
                         stepped =
@@ -767,6 +793,18 @@ resolveQueue currentStyle steps dt =
                             currentStyle
                             (steps ++ [ Repeat (n - 1) steps ])
                             dt
+
+
+replaceProps : List Property -> List Property -> List Property
+replaceProps props replacements =
+    let
+        replacementNames =
+            List.map propertyName replacements
+
+        removed =
+            List.filter (\prop -> not <| List.member (propertyName prop) replacementNames) props
+    in
+        removed ++ replacements
 
 
 {-| Property is done?
