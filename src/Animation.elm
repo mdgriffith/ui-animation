@@ -31,7 +31,7 @@ module Animation
         , fill
         , backgroundColor
         , borderColor
-        , rotateTo
+        , rotate
         , translate
         , translateY
         , translateX
@@ -1298,6 +1298,10 @@ propertyMatch prop1 prop2 =
     propertyName prop1 == propertyName prop2
 
 
+{-| Move one step in our interpolation strategy.
+
+For angle properties, wrap at 360 and -360 degrees.
+-}
 step : Time -> List Property -> List Property
 step dt props =
     let
@@ -1313,7 +1317,33 @@ step dt props =
                     LengthProperty name (stepSpring dt motion) unit
 
                 AngleProperty name motion unit ->
-                    AngleProperty name (stepSpring dt motion) unit
+                    let
+                        stepped =
+                            stepSpring dt motion
+
+                        wrapped =
+                            if stepped.position >= 360 && stepped.target >= 360 then
+                                { stepped
+                                    | position = stepped.position - 360
+                                    , target = stepped.target - 360
+                                }
+                            else if stepped.position <= -360 && stepped.target <= -360 then
+                                { stepped
+                                    | position = stepped.position + 360
+                                    , target = stepped.target + 360
+                                }
+                            else if stepped.position >= 360 then
+                                { stepped
+                                    | position = stepped.position - 360
+                                }
+                            else if stepped.position <= -360 then
+                                { stepped
+                                    | position = stepped.position + 360
+                                }
+                            else
+                                stepped
+                    in
+                        AngleProperty name wrapped unit
 
                 LengthProperty2 name motion1 motion2 unit1 unit2 ->
                     LengthProperty2 name
@@ -1539,17 +1569,6 @@ stepSpring dtms motion =
                 }
 
 
-
--- resolveInterruption : Maybe ( Time, Animation msg )
--- Do any interruptions take effect?
--- If so, implement them
--- Resolve steps.  This could mean multiple steps need to be resolved.
--- Send, Wait 0, and Set all resolve immediately.
---
--- Steps keep resolving until an unresolvable step is encountered
---     Such as Repeat n, Loop, or To.
-
-
 {-| Given a property, return the same property with the value set to a default.
 
 TODO: Path property could have a more intelligent default
@@ -1660,7 +1679,7 @@ lengthUnitName unit =
 {-| I know this is very bizarre, why don't we just specify a Float in each type constructor of LengthUnit?
 The reason for this is that later on we handle units separately from a 'float' value.
 
-See the 'Motion' type.
+Specifically, the 'Motion' type is used to house all the values for all the different types of properties and the units live outside of that type.
 
 -}
 type alias Length =
@@ -1843,6 +1862,46 @@ colorProp name color =
 opacity : Float -> Property
 opacity x =
     unitless "opacity" x
+
+
+display : DisplayMode -> Property
+display mode =
+    Display mode
+
+
+none : DisplayMode
+none =
+    None
+
+
+inline : DisplayMode
+inline =
+    Inline
+
+
+inlineBlock : DisplayMode
+inlineBlock =
+    InlineBlock
+
+
+block : DisplayMode
+block =
+    Block
+
+
+flex : DisplayMode
+flex =
+    Flex
+
+
+inlineFlex : DisplayMode
+inlineFlex =
+    InlineFlex
+
+
+listItem : DisplayMode
+listItem =
+    ListItem
 
 
 height : Length -> Property
@@ -2056,8 +2115,8 @@ scaleZ x =
     unitless "scale-z" x
 
 
-rotateTo : Angle -> Property
-rotateTo angle =
+rotate : Angle -> Property
+rotate angle =
     angleProp "rotate" angle
 
 
