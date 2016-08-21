@@ -6,12 +6,11 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Animation
 import Time exposing (Time, second)
-import AnimationFrame
 import Color exposing (rgba)
 
 
 type alias Model =
-    { style : Style.Animation
+    { style : Animation.State Msg
     }
 
 
@@ -24,39 +23,41 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update action model =
     case action of
         ChangeColor ->
-            let
-                style =
-                    Style.animate
-                        |> Style.to
-                            [ BackgroundColor (rgba 100 100 100 1.0)
-                            ]
-                        |> Style.andThen
-                        |> Style.duration (1 * second)
-                        |> Style.to
-                            [ BackgroundColor (rgba 178 201 14 1.0)
-                            ]
-                        |> Style.andThen
-                        |> Style.to
-                            [ BackgroundColor (rgba 58 40 69 1.0)
-                            ]
-                        |> Style.on model.style
-            in
-                ( { model | style = style }
-                , Cmd.none
-                )
-
-        Animate time ->
             ( { model
-                | style = Style.tick time model.style
+                | style =
+                    Animation.interrupt
+                        [ Animation.to
+                            [ Animation.backgroundColor (rgba 100 100 100 1.0)
+                            ]
+                        , Animation.to
+                            [ Animation.backgroundColor (rgba 178 201 14 1.0)
+                            ]
+                        , Animation.to
+                            [ Animation.backgroundColor (rgba 58 40 69 1.0)
+                            ]
+                        ]
+                        model.style
               }
             , Cmd.none
             )
 
+        Animate time ->
+            let
+                ( newStyle, msgs ) =
+                    Animation.tick time model.style
+            in
+                ( { model
+                    | style = newStyle
+                  }
+                , Cmd.none
+                )
+
 
 view : Model -> Html Msg
 view model =
-    let
-        triggerStyle =
+    div
+        ([ onClick ChangeColor
+         , style
             [ ( "position", "relative" )
             , ( "margin", "200px auto" )
             , ( "width", "250px" )
@@ -66,18 +67,16 @@ view model =
             , ( "color", "white" )
             , ( "cursor", "pointer" )
             ]
-    in
-        div
-            [ onClick ChangeColor
-            , style (triggerStyle ++ Style.render model.style)
-            ]
-            [ text "Click to Change Color" ]
+         ]
+            ++ Animation.render model.style
+        )
+        [ text "Click to Change Color" ]
 
 
 init : ( Model, Cmd Msg )
 init =
     ( { style =
-            Style.init [ BackgroundColor (rgba 58 40 69 1.0) ]
+            Animation.style [ Animation.backgroundColor (rgba 58 40 69 1.0) ]
       }
     , Cmd.none
     )
@@ -85,7 +84,7 @@ init =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    AnimationFrame.times Animate
+    Animation.subscription model.style Animate
 
 
 main =

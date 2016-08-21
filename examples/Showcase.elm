@@ -7,37 +7,41 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Html.Lazy
-import Style
-import Style.Properties exposing (..)
-import Style.Spring.Presets
-import AnimationFrame
+import Animation exposing (px, turn)
+import Animation.Dict
+import Dict exposing (Dict)
 import Color exposing (rgb, rgba)
 import Time exposing (Time, second)
 import Ease
 
 
 type alias Model =
-    { widgets : List Widget }
+    { widgets : List Widget
+    , styles : Dict String (Animation.State Msg)
+    }
 
 
 type alias Widget =
     { label : String
-    , style : Style.Animation
-    , action : Int -> Msg
+    , action : Msg
     }
 
 
 type Msg
-    = RotateWidget Int
-    | RotateAllAxis Int
-    | RotateCustomEasingDuration Int
-    | ChangeColors Int
-    | ChangeMultipleColors Int
-    | FadeOutFadeIn Int
-    | FadeOut Int
-    | Loopty Int
-    | Spring Int
+    = RotateWidget
+    | RotateAllAxis
+    | RotateCustomEasingDuration
+    | ChangeColors
+    | ChangeMultipleColors
+    | FadeOutFadeIn
+    | FadeOut
+    | Loopty
+    | Spring
     | Animate Time
+
+
+(=>) =
+    (,)
 
 
 mapToIndex : Int -> (a -> a) -> List a -> List a
@@ -55,244 +59,212 @@ mapToIndex j fn list =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update action model =
     case action of
-        RotateWidget i ->
-            let
-                widgets =
-                    -- Interrupt any animation on this element and start this animation
-                    Style.animate
-                        |> Style.update
-                            [ Rotate ((+) 1.0) Turn
-                            ]
-                        |> (\act ->
-                                mapToIndex i
-                                    (\widget ->
-                                        { widget
-                                            | style = Style.on widget.style act
-                                        }
-                                    )
-                                    model.widgets
-                           )
-            in
-                ( { model | widgets = widgets }
-                , Cmd.none
-                )
-
-        RotateAllAxis i ->
-            let
-                widgets =
-                    -- queue up this animation
-                    -- as opposed to interrupting
-                    Style.queue
-                        |> Style.update
-                            [ RotateX ((+) 1) Turn
-                            , RotateY ((+) 1) Turn
-                            , Rotate ((+) 1) Turn
-                            ]
-                        |> (\act ->
-                                mapToIndex i
-                                    (\widget ->
-                                        { widget
-                                            | style = Style.on widget.style act
-                                        }
-                                    )
-                                    model.widgets
-                           )
-            in
-                ( { model | widgets = widgets }
-                , Cmd.none
-                )
-
-        RotateCustomEasingDuration i ->
-            let
-                widgets =
-                    Style.queue
-                        |> Style.duration (2 * second)
-                        |> Style.easing Ease.inBounce
-                        |> Style.update
-                            [ Rotate ((+) 1) Turn
-                            ]
-                        |> (\act ->
-                                mapToIndex i
-                                    (\widget ->
-                                        { widget
-                                            | style = Style.on widget.style act
-                                        }
-                                    )
-                                    model.widgets
-                           )
-            in
-                ( { model | widgets = widgets }
-                , Cmd.none
-                )
-
-        Loopty i ->
-            let
-                widgets =
-                    Style.queue
-                        |> Style.easing Ease.linear
-                        |> Style.duration (0.4 * second)
-                        |> Style.update
-                            [ Rotate (\x -> x - 0.5) Turn
-                            , Rotate ((+) 0.5) Turn
-                            , TranslateY (\_ -> 50) Px
-                            ]
-                        |> Style.andThen
-                        |> Style.easing Ease.linear
-                        |> Style.duration (0.4 * second)
-                        |> Style.update
-                            [ Rotate (\x -> x - 0.5) Turn
-                            , Rotate ((+) 0.5) Turn
-                            , TranslateY (\_ -> 0) Px
-                            ]
-                        |> (\act ->
-                                mapToIndex i
-                                    (\widget ->
-                                        { widget
-                                            | style = Style.on widget.style act
-                                        }
-                                    )
-                                    model.widgets
-                           )
-            in
-                ( { model | widgets = widgets }
-                , Cmd.none
-                )
-
-        Spring i ->
-            let
-                widgets =
-                    Style.queue
-                        |> Style.spring Style.Spring.Presets.noWobble
-                        |> Style.to
-                            [ Scale 1.5
-                            ]
-                        |> Style.andThen
-                        |> Style.spring Style.Spring.Presets.wobbly
-                        |> Style.to
-                            [ Scale 1.0
-                            ]
-                        |> (\act ->
-                                mapToIndex i
-                                    (\widget ->
-                                        { widget
-                                            | style = Style.on widget.style act
-                                        }
-                                    )
-                                    model.widgets
-                           )
-            in
-                ( { model | widgets = widgets }
-                , Cmd.none
-                )
-
-        ChangeColors i ->
-            let
-                widgets =
-                    Style.animate
-                        |> Style.to
-                            [ BackgroundColor (rgba 100 100 100 1.0)
-                            , BorderColor (rgba 100 100 100 1.0)
-                            ]
-                        |> (\act ->
-                                mapToIndex i
-                                    (\widget ->
-                                        { widget
-                                            | style = Style.on widget.style act
-                                        }
-                                    )
-                                    model.widgets
-                           )
-            in
-                ( { model | widgets = widgets }
-                , Cmd.none
-                )
-
-        ChangeMultipleColors i ->
-            let
-                widgets =
-                    -- animate is used to interrupt whatever current animation
-                    -- is running and smoothely move to the new style
-                    Style.animate
-                        |> Style.to
-                            [ BackgroundColor (rgba 100 100 100 1.0)
-                            , BorderColor (rgba 100 100 100 1.0)
-                            ]
-                        |> Style.andThen
-                        |> Style.to
-                            [ BackgroundColor (rgba 178 201 14 1.0)
-                            , BorderColor (rgba 178 201 14 1.0)
-                            ]
-                        |> (\act ->
-                                mapToIndex i
-                                    (\widget ->
-                                        { widget
-                                            | style = Style.on widget.style act
-                                        }
-                                    )
-                                    model.widgets
-                           )
-            in
-                ( { model | widgets = widgets }
-                , Cmd.none
-                )
-
-        FadeOutFadeIn i ->
-            let
-                widgets =
-                    Style.animate
-                        |> Style.to [ Opacity 0 ]
-                        |> Style.andThen
-                        |> Style.to [ Opacity 1 ]
-                        |> (\act ->
-                                mapToIndex i
-                                    (\widget ->
-                                        { widget
-                                            | style = Style.on widget.style act
-                                        }
-                                    )
-                                    model.widgets
-                           )
-            in
-                ( { model | widgets = widgets }
-                , Cmd.none
-                )
-
-        FadeOut i ->
-            let
-                widgets =
-                    Style.animate
-                        |> Style.to
-                            [ Opacity 0
-                            ]
-                        |> Style.andThen
-                        |> Style.set
-                            [ Display None
-                            ]
-                        |> (\act ->
-                                mapToIndex i
-                                    (\widget ->
-                                        { widget
-                                            | style = Style.on widget.style act
-                                        }
-                                    )
-                                    model.widgets
-                           )
-            in
-                ( { model | widgets = widgets }
-                , Cmd.none
-                )
-
-        Animate time ->
+        RotateWidget ->
             ( { model
-                | widgets =
-                    List.map
-                        (\widget ->
-                            { widget | style = Style.tick time widget.style }
+                | styles =
+                    Dict.update (toString RotateWidget)
+                        (Maybe.map <|
+                            Animation.interrupt
+                                [ Animation.to
+                                    [ Animation.rotate (Animation.turn 1.0)
+                                    ]
+                                ]
                         )
-                        model.widgets
+                        model.styles
               }
             , Cmd.none
             )
+
+        RotateAllAxis ->
+            ( { model
+                | styles =
+                    Dict.update (toString RotateAllAxis)
+                        (Maybe.map <|
+                            Animation.interrupt
+                                [ Animation.to
+                                    [ Animation.rotateX (turn 1)
+                                    , Animation.rotateY (turn 1)
+                                    , Animation.rotate (turn 1)
+                                    ]
+                                ]
+                        )
+                        model.styles
+              }
+            , Cmd.none
+            )
+
+        RotateCustomEasingDuration ->
+            ( model, Cmd.none )
+
+        --let
+        --    widgets =
+        --        Animation.queue
+        --            []
+        --            |> Animation.duration (2 * second)
+        --            |> Animation.easing Ease.inBounce
+        --            |> Animation.update
+        --                [ Rotate ((+) 1) Turn
+        --                ]
+        --            |> (\act ->
+        --                    mapToIndex i
+        --                        (\widget ->
+        --                            { widget
+        --                                | style = Animation.on widget.style act
+        --                            }
+        --                        )
+        --                        model.widgets
+        --               )
+        --in
+        --    ( { model | widgets = widgets }
+        --    , Cmd.none
+        --    )
+        Loopty ->
+            ( { model
+                | styles =
+                    Dict.update (toString Loopty)
+                        (Maybe.map <|
+                            Animation.interrupt
+                                [ Animation.to
+                                    [ Animation.rotate (turn -0.5)
+                                    , Animation.rotate (turn 0.5)
+                                    , Animation.translateY (px 50)
+                                    ]
+                                , Animation.to
+                                    [ Animation.rotate (turn -1.0)
+                                    , Animation.rotate (turn 1)
+                                    , Animation.translateY (px 0)
+                                    ]
+                                ]
+                        )
+                        model.styles
+              }
+            , Cmd.none
+            )
+
+        Spring ->
+            ( { model
+                | styles =
+                    Dict.update (toString Spring)
+                        (Maybe.map <|
+                            Animation.interrupt
+                                [ Animation.to
+                                    [ Animation.scale 1.5
+                                    ]
+                                , Animation.to
+                                    [ Animation.scale 1.0
+                                    ]
+                                ]
+                        )
+                        model.styles
+              }
+            , Cmd.none
+            )
+
+        ChangeColors ->
+            ( { model
+                | styles =
+                    Dict.update (toString ChangeColors)
+                        (Maybe.map
+                            (Animation.interrupt
+                                [ Animation.to
+                                    [ Animation.backgroundColor (rgba 100 100 100 1.0)
+                                    , Animation.borderColor (rgba 100 100 100 1.0)
+                                    ]
+                                ]
+                            )
+                        )
+                        model.styles
+              }
+            , Cmd.none
+            )
+
+        ChangeMultipleColors ->
+            ( { model
+                | styles =
+                    Dict.update (toString ChangeMultipleColors)
+                        (Maybe.map
+                            (Animation.interrupt
+                                [ Animation.to
+                                    [ Animation.backgroundColor (rgba 100 100 100 1.0)
+                                    , Animation.borderColor (rgba 100 100 100 1.0)
+                                    ]
+                                , Animation.to
+                                    [ Animation.backgroundColor (rgba 178 201 14 1.0)
+                                    , Animation.borderColor (rgba 178 201 14 1.0)
+                                    ]
+                                ]
+                            )
+                        )
+                        model.styles
+              }
+            , Cmd.none
+            )
+
+        FadeOutFadeIn ->
+            ( { model
+                | styles =
+                    Dict.update (toString FadeOutFadeIn)
+                        (Maybe.map
+                            (Animation.interrupt
+                                [ Animation.to
+                                    [ Animation.opacity 0
+                                    ]
+                                , Animation.to
+                                    [ Animation.opacity 1
+                                    ]
+                                ]
+                            )
+                        )
+                        model.styles
+              }
+            , Cmd.none
+            )
+
+        FadeOut ->
+            ( { model
+                | styles =
+                    Dict.update (toString FadeOut)
+                        (Maybe.map
+                            (Animation.interrupt
+                                [ Animation.to
+                                    [ Animation.opacity 0
+                                    ]
+                                , Animation.set
+                                    [ Animation.display Animation.none
+                                    ]
+                                ]
+                            )
+                        )
+                        model.styles
+              }
+            , Cmd.none
+            )
+
+        Animate time ->
+            let
+                ( styles, msgs ) =
+                    Animation.Dict.tick time styles
+            in
+                updates msgs
+                    ( { model
+                        | styles = styles
+                      }
+                    , Cmd.none
+                    )
+
+
+updates : List Msg -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+updates msgs modelCmd =
+    List.foldl
+        (\msg ( model, cmd ) ->
+            let
+                ( newModel, newCmd ) =
+                    update msg model
+            in
+                ( newModel, Cmd.batch [ cmd, newCmd ] )
+        )
+        modelCmd
+        msgs
 
 
 
@@ -301,22 +273,22 @@ update action model =
 
 view : Model -> Html Msg
 view model =
-    let
-        triggerStyle =
+    div
+        [ style
             [ ( "position", "relative" )
             , ( "left", "0px" )
             , ( "top", "0px" )
             , ( "width", "100%" )
             , ( "height", "100%" )
             ]
-    in
-        div [ style triggerStyle ]
-            <| List.indexedMap (\i w -> Html.Lazy.lazy2 box i w)
-                model.widgets
+        ]
+    <|
+        List.map (box model.styles)
+            model.widgets
 
 
-box : Int -> Widget -> Html Msg
-box i widget =
+box : Dict String (Animation.State Msg) -> Widget -> Html Msg
+box styles widget =
     let
         boxStyle =
             [ ( "position", "relative" )
@@ -333,28 +305,28 @@ box i widget =
             ]
     in
         div
-            [ style (boxStyle ++ Style.render widget.style)
-            , onClick (widget.action i)
-            ]
+            (Animation.Dict.render (toString widget.action) styles
+                ++ [ onClick (widget.action) ]
+            )
             [ text widget.label ]
 
 
 initialWidgetStyle =
-    Style.init
-        [ Display InlineBlock
-        , Rotate 0.0 Turn
-        , RotateX 0.0 Turn
-        , RotateY 0.0 Turn
-        , TranslateY 0.0 Px
-        , TranslateX 0.0 Px
-        , Rotate 0.0 Turn
-        , Opacity 1
-        , BackgroundColor (rgba 58 40 69 1.0)
-        , Color (rgba 255 255 255 1.0)
-        , Scale 1.0
-        , BorderColor (rgb 136 96 161)
-        , BorderWidth 4 Px
-        , BorderRadius 8 Px
+    Animation.style
+        [ Animation.display Animation.inlineBlock
+        , Animation.rotate (turn 0.0)
+        , Animation.rotateX (turn 0.0)
+        , Animation.rotateY (turn 0.0)
+        , Animation.translateY (px 0)
+        , Animation.translateX (px 0)
+        , Animation.rotate (turn 0)
+        , Animation.opacity 1
+        , Animation.backgroundColor (rgba 58 40 69 1.0)
+        , Animation.color (rgba 255 255 255 1.0)
+        , Animation.scale 1.0
+        , Animation.borderColor (rgb 136 96 161)
+        , Animation.borderWidth (px 4)
+        , Animation.borderRadius (px 8)
         ]
 
 
@@ -362,42 +334,47 @@ init : ( Model, Cmd Msg )
 init =
     ( { widgets =
             [ { label = "Rotate"
-              , style = initialWidgetStyle
               , action = RotateWidget
               }
             , { label = "Rotate in All Kinds of Ways"
-              , style = initialWidgetStyle
               , action = RotateAllAxis
               }
             , { label = "Rotate with custom easing and duration"
-              , style = initialWidgetStyle
               , action = RotateCustomEasingDuration
               }
             , { label = "Change Colors"
-              , style = initialWidgetStyle
               , action = ChangeColors
               }
             , { label = "Change Through Multiple Colors"
-              , style = initialWidgetStyle
               , action = ChangeMultipleColors
               }
             , { label = "Fade Out Fade In"
-              , style = initialWidgetStyle
               , action = FadeOutFadeIn
               }
             , { label = "Fade Out and display:none"
-              , style = initialWidgetStyle
               , action = FadeOut
               }
             , { label = "Loop About"
-              , style = initialWidgetStyle
               , action = Loopty
               }
             , { label = "Use a Spring"
-              , style = initialWidgetStyle
               , action = Spring
               }
             ]
+      , styles =
+            Dict.fromList <|
+                List.map
+                    (\x -> ( toString x, initialWidgetStyle ))
+                    [ RotateWidget
+                    , RotateAllAxis
+                    , RotateCustomEasingDuration
+                    , ChangeColors
+                    , ChangeMultipleColors
+                    , FadeOutFadeIn
+                    , FadeOut
+                    , Loopty
+                    , Spring
+                    ]
       }
     , Cmd.none
     )
@@ -405,7 +382,7 @@ init =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    AnimationFrame.times Animate
+    Animation.Dict.subscription model.styles Animate
 
 
 main =

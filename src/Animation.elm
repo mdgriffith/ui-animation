@@ -13,6 +13,13 @@ module Animation
         , styleWith
         , styleWithEach
         , opacity
+        , display
+        , inline
+        , inlineBlock
+        , flex
+        , inlineFlex
+        , block
+        , none
         , top
         , left
         , right
@@ -31,7 +38,13 @@ module Animation
         , fill
         , backgroundColor
         , borderColor
+        , borderWidth
+        , borderRadius
+        , scale
         , rotate
+        , rotateX
+        , rotateY
+        , rotateZ
         , translate
         , translateY
         , translateX
@@ -49,6 +62,7 @@ module Animation
         , smoothQuadratic
         , smoothQuadraticTo
         , px
+        , turn
         , deg
         , isRunning
         )

@@ -1,4 +1,4 @@
-module Animation.Dict exposing (subscription, tick, render, style, styleWith, styleWithEach)
+module Animation.Dict exposing (subscription, tick, render)
 
 import Animation
 import AnimationFrame
@@ -7,13 +7,13 @@ import Dict exposing (Dict)
 import Html
 
 
-type alias StyleDict id msg =
-    Dict id (Animation.State msg)
+type alias StyleDict comparable msg =
+    Dict comparable (Animation.State msg)
 
 
-subscription : StyleDict id msg -> (Time -> msg) -> Sub msg
+subscription : StyleDict comparable msg -> (Time -> msg) -> Sub msg
 subscription dict msg =
-    if List.any Animation.isRunning Dict.values then
+    if List.any Animation.isRunning (Dict.values dict) then
         AnimationFrame.times msg
     else
         Sub.none
@@ -22,7 +22,7 @@ subscription dict msg =
 {-|
 
 -}
-tick : Time -> StyleDict id msg -> ( StyleDict id msg, List msg )
+tick : Time -> StyleDict comparable msg -> ( StyleDict comparable msg, List msg )
 tick time dict =
     Dict.foldl
         (\id style ( dict2, msgs ) ->
@@ -36,9 +36,9 @@ tick time dict =
         dict
 
 
-render : StyleDict id msg -> id -> List Html.Attribute
-render dict id =
-    case Dict.get dict id of
+render : comparable -> StyleDict comparable msg -> List (Html.Attribute msg)
+render id dict =
+    case Dict.get id dict of
         Just style ->
             Animation.render style
 

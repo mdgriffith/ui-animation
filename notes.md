@@ -145,6 +145,8 @@ This also needs to be accounted for in all the channels of a color property.  Ea
 
 ## Do Interruptions Stack?
 If two interruptions are called, does the first one that goes into effect negate the second one?
+Nope, they keep stacking and interrupting as necessary.
+
 
 
 ## Steps for Properties instead of Property Groups.

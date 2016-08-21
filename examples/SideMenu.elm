@@ -62,11 +62,26 @@ update action model =
                 ( anim, msgs ) =
                     Animation.tick time model.style
             in
-                ( { model
-                    | style = anim
-                  }
-                , Cmd.none
-                )
+                updates msgs
+                    ( { model
+                        | style = anim
+                      }
+                    , Cmd.none
+                    )
+
+
+updates : List Msg -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+updates msgs modelCmd =
+    List.foldl
+        (\msg ( model, cmd ) ->
+            let
+                ( newModel, newCmd ) =
+                    update msg model
+            in
+                ( newModel, Cmd.batch [ cmd, newCmd ] )
+        )
+        modelCmd
+        msgs
 
 
 view : Model -> Html Msg
