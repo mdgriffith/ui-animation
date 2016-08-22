@@ -67,13 +67,13 @@ update action model =
 
         Animate time ->
             let
-                ( newWidgets, msgs ) =
+                ( newWidgets, cmds ) =
                     Animation.List.tick time model.widgets
             in
                 ( { model
                     | widgets = newWidgets
                   }
-                , Cmd.none
+                , Cmd.batch cmds
                 )
 
 

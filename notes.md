@@ -234,3 +234,13 @@ In order to use use easing/duration
  * startTime : Time
  * startValue : Float
  * targetValue : Float
+
+
+
+
+
+
+# Default Interpolations when Default values are used.
+
+
+

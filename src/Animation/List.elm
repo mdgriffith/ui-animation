@@ -17,7 +17,7 @@ subscription list msg =
 {-|
 
 -}
-tick : Time -> List (Animation.State msg) -> ( List (Animation.State msg), List msg )
+tick : Time -> List (Animation.State msg) -> ( List (Animation.State msg), List (Cmd msg) )
 tick time list =
     List.foldl
         (\style ( styleStack, msgs ) ->

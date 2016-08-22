@@ -13,6 +13,7 @@ import Dict exposing (Dict)
 import Color exposing (rgb, rgba)
 import Time exposing (Time, second)
 import Ease
+import Task
 
 
 type alias Model =
@@ -62,14 +63,9 @@ update action model =
         RotateWidget ->
             ( { model
                 | styles =
-                    Dict.update (toString RotateWidget)
-                        (Maybe.map <|
-                            Animation.interrupt
-                                [ Animation.to
-                                    [ Animation.rotate (Animation.turn 1.0)
-                                    ]
-                                ]
-                        )
+                    Dict.update
+                        (toString RotateWidget)
+                        identity
                         model.styles
               }
             , Cmd.none
@@ -242,32 +238,29 @@ update action model =
 
         Animate time ->
             let
-                ( styles, msgs ) =
-                    Animation.Dict.tick time styles
+                ( styles, cmds ) =
+                    Animation.Dict.tick time model.styles
             in
-                updates msgs
-                    ( { model
-                        | styles = styles
-                      }
-                    , Cmd.none
-                    )
-
-
-updates : List Msg -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
-updates msgs modelCmd =
-    List.foldl
-        (\msg ( model, cmd ) ->
-            let
-                ( newModel, newCmd ) =
-                    update msg model
-            in
-                ( newModel, Cmd.batch [ cmd, newCmd ] )
-        )
-        modelCmd
-        msgs
+                ( { model
+                    | styles = styles
+                  }
+                , Cmd.batch cmds
+                )
 
 
 
+--updates : List Msg -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+--updates msgs modelCmd =
+--    List.foldl
+--        (\msg ( model, cmd ) ->
+--            let
+--                ( newModel, newCmd ) =
+--                    update msg model
+--            in
+--                ( newModel, Cmd.batch [ cmd, newCmd ] )
+--        )
+--        modelCmd
+--        msgs
 -- VIEW
 
 
@@ -283,7 +276,8 @@ view model =
             ]
         ]
     <|
-        List.map (box model.styles)
+        List.map
+            (box model.styles)
             model.widgets
 
 

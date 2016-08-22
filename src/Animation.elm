@@ -24,6 +24,8 @@ module Animation
         , left
         , right
         , bottom
+        , width
+        , height
         , padding
         , paddingLeft
         , paddingRight
@@ -74,6 +76,7 @@ import String
 import Html
 import Html.Attributes
 import Svg.Attributes
+import Task
 
 
 type State msg
@@ -94,99 +97,6 @@ type alias Timing =
 
 type alias Animation msg =
     List (Step msg)
-
-
-{-| Combine "transform" based properties into a single css property.
-
--}
-render : State msg -> List (Html.Attribute msg)
-render (State model) =
-    let
-        ( attrProps, styleProps ) =
-            List.partition isAttr model.style
-
-        ( style, transforms ) =
-            List.foldl
-                (\prop ( style, transforms ) ->
-                    if isTransformation prop then
-                        ( style, prop :: transforms )
-                    else
-                        ( prop :: style, transforms )
-                )
-                ( [], [] )
-                styleProps
-
-        renderedStyle =
-            List.map (\prop -> ( propertyName prop, propertyValue prop " " )) style
-
-        styleAttr =
-            if List.length transforms == 0 then
-                Html.Attributes.style renderedStyle
-            else
-                Html.Attributes.style <|
-                    ( "transform"
-                    , String.concat <|
-                        List.map
-                            (\prop ->
-                                propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
-                            )
-                            transforms
-                    )
-                        :: renderedStyle
-
-        otherAttrs =
-            List.filterMap renderAttrs attrProps
-    in
-        styleAttr :: otherAttrs
-
-
-renderAttrs : Property -> Maybe (Html.Attribute msg)
-renderAttrs prop =
-    case prop of
-        Points pts ->
-            Just <| Svg.Attributes.points <| propertyValue (Points pts) " "
-
-        Path cmds ->
-            Just <| Svg.Attributes.d <| propertyValue (Path cmds) " "
-
-        _ ->
-            Nothing
-
-
-isTransformation : Property -> Bool
-isTransformation prop =
-    List.member (propertyName prop)
-        [ "rotate"
-        , "rotate3d"
-        , "transform"
-        , "transform3d"
-        , "translateX"
-        , "translateY"
-        , "scale"
-        , "scale3d"
-        , "scaleX"
-        , "scaleY"
-        , "scaleZ"
-        , "skew"
-        , "skewX"
-        , "skewY"
-        , "perspective"
-        ]
-
-
-{-| This property can only be represented as an html attribute
--}
-isAttr : Property -> Bool
-isAttr prop =
-    case prop of
-        Points _ ->
-            True
-
-        Path _ ->
-            True
-
-        _ ->
-            False
 
 
 {-|
@@ -210,6 +120,7 @@ type Interpolation
     | Easing
         { progress : Float
         , duration : Time
+        , start : Time
         , ease : Float -> Float
         }
 
@@ -253,29 +164,46 @@ type DisplayMode
     | ListItem
 
 
-displayModeName : DisplayMode -> String
-displayModeName mode =
-    case mode of
-        None ->
-            "none"
 
-        Inline ->
-            "inline"
+---------------------------
+-- Setting Defaults
+--------------------------
 
-        InlineBlock ->
-            "inline-block"
 
-        Block ->
-            "block"
+{-| Given a property, return the same property with the value set to a default.
 
-        Flex ->
-            "flex"
+TODO: Path property could have a more intelligent default
+-}
+default : Property -> Property
+default property =
+    case property of
+        Display mode ->
+            Display Block
 
-        InlineFlex ->
-            "inline-flex"
+        ColorProperty name _ _ _ _ ->
+            Debug.log (name ++ " has no initial value.  Defaulting to transparent white.") <|
+                colorProp name (Color.rgba 255 255 255 0)
 
-        ListItem ->
-            "list-item"
+        FloatProperty name _ ->
+            unitless name 0
+
+        LengthProperty name _ unit ->
+            length name ( 0, unit )
+
+        LengthProperty2 name _ _ unit1 unit2 ->
+            length2 name ( 0, unit1 ) ( 0, unit2 )
+
+        LengthProperty3 name _ _ _ unit1 unit2 unit3 ->
+            length3 name ( 0, unit1 ) ( 0, unit2 ) ( 0, unit3 )
+
+        AngleProperty name _ unit ->
+            angleProp name ( 0, unit )
+
+        Points pnts ->
+            Points <| List.map (\_ -> ( initMotion 0, initMotion 0 )) pnts
+
+        Path cmds ->
+            Path []
 
 
 defaultInterpolation : Interpolation
@@ -295,6 +223,9 @@ setDefaultInterpolation prop =
         setInterpolation interp prop
 
 
+{-|
+
+-}
 defaultInterpolationByProperty : Property -> Interpolation
 defaultInterpolationByProperty prop =
     let
@@ -307,6 +238,7 @@ defaultInterpolationByProperty prop =
         linear duration =
             Easing
                 { progress = 0
+                , start = 0
                 , duration = duration
                 , ease = identity
                 }
@@ -338,628 +270,6 @@ defaultInterpolationByProperty prop =
 
             Path _ ->
                 spring
-
-
-propertyName : Property -> String
-propertyName prop =
-    case prop of
-        Display _ ->
-            "display"
-
-        ColorProperty name _ _ _ _ ->
-            name
-
-        FloatProperty name _ ->
-            name
-
-        LengthProperty name _ _ ->
-            name
-
-        LengthProperty2 name _ _ _ _ ->
-            name
-
-        LengthProperty3 name _ _ _ _ _ _ ->
-            name
-
-        AngleProperty name _ _ ->
-            name
-
-        Points _ ->
-            "points"
-
-        Path _ ->
-            "path"
-
-
-propertyValue : Property -> String -> String
-propertyValue prop delim =
-    case prop of
-        Display mode ->
-            displayModeName mode
-
-        ColorProperty _ r g b a ->
-            "rgba("
-                ++ toString (round r.position)
-                ++ ","
-                ++ toString (round g.position)
-                ++ ","
-                ++ toString (round b.position)
-                ++ ","
-                ++ toString a.position
-                ++ ")"
-
-        FloatProperty _ x ->
-            toString x.position
-
-        LengthProperty _ x unit ->
-            toString x.position ++ lengthUnitName unit
-
-        LengthProperty2 _ x y unit1 unit2 ->
-            toString x.position
-                ++ lengthUnitName unit1
-                ++ delim
-                ++ toString y.position
-                ++ lengthUnitName unit2
-
-        LengthProperty3 _ x y z unit1 unit2 unit3 ->
-            toString x.position
-                ++ lengthUnitName unit1
-                ++ delim
-                ++ toString y.position
-                ++ lengthUnitName unit2
-                ++ delim
-                ++ toString z.position
-                ++ lengthUnitName unit3
-
-        AngleProperty _ x unit ->
-            toString x.position ++ angleUnitName unit
-
-        Points coords ->
-            String.join " " <|
-                List.map
-                    (\( x, y ) ->
-                        toString x.position ++ "," ++ toString y.position
-                    )
-                    coords
-
-        Path cmds ->
-            String.join " " <|
-                List.map cmdValue cmds
-
-
-cmdValue : PathCommand -> String
-cmdValue cmd =
-    let
-        renderPoints coords =
-            String.join " " <|
-                List.map
-                    (\( x, y ) ->
-                        toString x.position ++ "," ++ toString y.position
-                    )
-                    coords
-    in
-        case cmd of
-            Move x y ->
-                "m " ++ toString x.position ++ "," ++ toString y.position
-
-            MoveTo x y ->
-                "M " ++ toString x.position ++ "," ++ toString y.position
-
-            Line x y ->
-                "l " ++ toString x.position ++ "," ++ toString y.position
-
-            LineTo x y ->
-                "L " ++ toString x.position ++ "," ++ toString y.position
-
-            Horizontal a ->
-                "h " ++ toString a.position
-
-            HorizontalTo a ->
-                "H " ++ toString a.position
-
-            Vertical a ->
-                "v " ++ toString a.position
-
-            VerticalTo a ->
-                "V " ++ toString a.position
-
-            Curve points ->
-                "c " ++ renderPoints points
-
-            CurveTo points ->
-                "C " ++ renderPoints points
-
-            Quadratic points ->
-                "q " ++ renderPoints points
-
-            QuadraticTo points ->
-                "Q " ++ renderPoints points
-
-            SmoothQuadratic points ->
-                "t " ++ renderPoints points
-
-            SmoothQuadraticTo points ->
-                "T " ++ renderPoints points
-
-            Smooth points ->
-                "s " ++ renderPoints points
-
-            SmoothTo points ->
-                "S " ++ renderPoints points
-
-            ArcCmd arc ->
-                "a "
-                    ++ toString arc.radiusX.position
-                    ++ ","
-                    ++ toString arc.radiusY.position
-                    ++ " "
-                    ++ toString arc.xAxisRotation.position
-                    ++ " "
-                    ++ (if arc.large then
-                            "1"
-                        else
-                            "0"
-                       )
-                    ++ " "
-                    ++ (if arc.sweep then
-                            "1"
-                        else
-                            "0"
-                       )
-                    ++ " "
-                    ++ toString arc.x.position
-                    ++ ","
-                    ++ toString arc.y.position
-
-            ArcTo arc ->
-                "A "
-                    ++ toString arc.radiusX.position
-                    ++ ","
-                    ++ toString arc.radiusY.position
-                    ++ " "
-                    ++ toString arc.xAxisRotation.position
-                    ++ " "
-                    ++ (if arc.large then
-                            "1"
-                        else
-                            "0"
-                       )
-                    ++ " "
-                    ++ (if arc.sweep then
-                            "1"
-                        else
-                            "0"
-                       )
-                    ++ " "
-                    ++ toString arc.x.position
-                    ++ ","
-                    ++ toString arc.y.position
-
-            Close ->
-                "z"
-
-
-wait : Time -> Step msg
-wait till =
-    Wait till
-
-
-to : List Property -> Step msg
-to props =
-    To props
-
-
-set : List Property -> Step msg
-set props =
-    Set props
-
-
-send : msg -> Step msg
-send msg =
-    Send msg
-
-
-repeat : Int -> List (Step msg) -> Step msg
-repeat n steps =
-    Repeat n steps
-
-
-loop : List (Step msg) -> Step msg
-loop steps =
-    Loop steps
-
-
-initialState : Style -> State msg
-initialState current =
-    State
-        { steps = []
-        , style = current
-        , timing =
-            { current = 0
-            , dt = 0
-            }
-        , running = False
-        , interruption = []
-        }
-
-
-{-| Set an initial style for an animation.
-
-Uses standard defaults for interpolation
-
--}
-style : List Property -> State msg
-style props =
-    initialState <| List.map setDefaultInterpolation props
-
-
-{-| Set an initial style for an animation and override the standard default for interpolation.
-
--}
-styleWith : Interpolation -> List Property -> State msg
-styleWith interp props =
-    initialState <| List.map (setInterpolation interp) props
-
-
-{-| Set an initial style for an animation and specify the interpolation to be used for each property.
-
-Any property not listed will receive interpolation based on the standard defaults.
--}
-styleWithEach : List ( Interpolation, Property ) -> State msg
-styleWithEach props =
-    initialState <| List.map (\( interp, prop ) -> setInterpolation interp prop) props
-
-
-{-| Add an animation to the queue, execiting once the current animation finishes
-
--}
-queue : Animation msg -> State msg -> State msg
-queue steps (State model) =
-    State
-        { model
-            | steps = model.steps ++ steps
-            , running = True
-        }
-
-
-{-| Interrupt any running animations with the following animation.
-
--}
-interrupt : Animation msg -> State msg -> State msg
-interrupt steps (State model) =
-    State
-        { model
-            | interruption = extractInitialWait steps :: model.interruption
-            , running = True
-        }
-
-
-{-| Sums all leading `Wait` steps and removes them from the animation.
-
-This is used because the wait at the start of an interruption works differently than a normal wait.
-
-
--}
-extractInitialWait : Animation msg -> ( Time, Animation msg )
-extractInitialWait steps =
-    case List.head steps of
-        Nothing ->
-            ( 0, [] )
-
-        Just step ->
-            case step of
-                Wait till ->
-                    let
-                        ( additionalTime, remainingSteps ) =
-                            extractInitialWait (List.drop 1 steps)
-                    in
-                        ( till + additionalTime, remainingSteps )
-
-                _ ->
-                    ( 0, steps )
-
-
-{-| Create a subscription to AnimationFrame.times.
-
-It is throttled based on whether the current animation is running or not.
-
--}
-subscription : State msg -> (Time -> msg) -> Sub msg
-subscription (State model) msg =
-    if model.running then
-        AnimationFrame.times msg
-    else
-        Sub.none
-
-
-{-| Used by Animation.Dict
-
--}
-isRunning : State msg -> Bool
-isRunning (State model) =
-    model.running
-
-
-refreshTiming : Time -> Timing -> Timing
-refreshTiming now timing =
-    let
-        dt =
-            now - timing.current
-
-        -- dt is set to 0 if it is a large dt,
-        -- because that usually means that the user
-        -- left the browser window and came back.
-        -- Perhaps a better way of handling it would be to modify the spring equations
-        -- so that they can handle large dts without overshooting their target.
-        -- The initial frame is where current == 0, in which case dt should be 0 as well.
-    in
-        { current = now
-        , dt =
-            if (dt > 300) || (timing.current == 0) then
-                0.0
-            else
-                dt
-        }
-
-
-tick : Time -> State msg -> ( State msg, List msg )
-tick now (State model) =
-    let
-        -- set current and dt time
-        timing =
-            refreshTiming now model.timing
-
-        -- Resolve potential interrutions
-        ( readyInterruption, queuedInterruptions ) =
-            List.map
-                (\( wait, steps ) ->
-                    ( wait - timing.dt, steps )
-                )
-                model.interruption
-                |> List.partition
-                    (\( wait, steps ) -> wait <= 0)
-
-        -- if there are more than one matching interruptions,
-        -- we only take the first, which is the one that was most recently assigned.
-        queue =
-            case List.head readyInterruption of
-                Just ( wait, interrupt ) ->
-                    interrupt
-
-                Nothing ->
-                    model.steps
-
-        ( revisedStyle, sentMessages, revisedQueue ) =
-            resolveQueue model.style queue timing.dt
-    in
-        ( State
-            { model
-                | timing = timing
-                , interruption = queuedInterruptions
-                , running = List.length revisedQueue /= 0
-                , steps = revisedQueue
-                , style = revisedStyle
-            }
-        , sentMessages
-        )
-
-
-resolveQueue : List Property -> Animation msg -> Time -> ( List Property, List msg, Animation msg )
-resolveQueue currentStyle steps dt =
-    case List.head steps of
-        Nothing ->
-            ( currentStyle, [], [] )
-
-        Just currentStep ->
-            case currentStep of
-                Wait n ->
-                    if n <= 0 then
-                        resolveQueue currentStyle (List.drop 1 steps) dt
-                    else
-                        -- What about a slight overage of time?
-                        ( currentStyle, [], (Wait <| n - dt) :: List.drop 1 steps )
-
-                Send msg ->
-                    let
-                        ( newStyle, msgs, remainingSteps ) =
-                            resolveQueue currentStyle (List.drop 1 steps) dt
-                    in
-                        ( newStyle, msg :: msgs, remainingSteps )
-
-                To target ->
-                    -- Add starting time to any properties with duration/easing
-                    resolveQueue
-                        (startTowards currentStyle target)
-                        (Step :: List.drop 1 steps)
-                        dt
-
-                Set props ->
-                    let
-                        replaced =
-                            replaceProps currentStyle props
-                    in
-                        resolveQueue replaced (List.drop 1 steps) dt
-
-                Step ->
-                    let
-                        stepped =
-                            step dt currentStyle
-                    in
-                        ( stepped
-                        , []
-                        , if List.all isDone stepped then
-                            List.drop 1 steps
-                          else
-                            steps
-                        )
-
-                Loop steps ->
-                    resolveQueue
-                        currentStyle
-                        (steps ++ [ Loop steps ])
-                        dt
-
-                Repeat n steps ->
-                    if n == 0 then
-                        ( currentStyle, [], List.drop 1 steps )
-                    else
-                        resolveQueue
-                            currentStyle
-                            (steps ++ [ Repeat (n - 1) steps ])
-                            dt
-
-
-replaceProps : List Property -> List Property -> List Property
-replaceProps props replacements =
-    let
-        replacementNames =
-            List.map propertyName replacements
-
-        removed =
-            List.filter (\prop -> not <| List.member (propertyName prop) replacementNames) props
-    in
-        removed ++ replacements
-
-
-{-| Property is done?
-
-TODO: What about interlaced property animations?
-
--}
-isDone : Property -> Bool
-isDone property =
-    let
-        motionDone motion =
-            motion.velocity == 0 && motion.position == motion.target
-    in
-        case property of
-            Display _ ->
-                True
-
-            ColorProperty _ m1 m2 m3 m4 ->
-                List.all motionDone [ m1, m2, m3, m4 ]
-
-            FloatProperty _ m1 ->
-                motionDone m1
-
-            LengthProperty _ m1 _ ->
-                motionDone m1
-
-            LengthProperty2 _ m1 m2 _ _ ->
-                motionDone m1 && motionDone m2
-
-            LengthProperty3 _ m1 m2 m3 _ _ _ ->
-                List.all motionDone [ m1, m2, m3 ]
-
-            AngleProperty _ m1 _ ->
-                motionDone m1
-
-            Points ms ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) ms
-
-            Path cmds ->
-                List.all isCmdDone cmds
-
-
-isCmdDone : PathCommand -> Bool
-isCmdDone cmd =
-    let
-        motionDone motion =
-            motion.velocity == 0 && motion.position == motion.target
-    in
-        case cmd of
-            Move m1 m2 ->
-                motionDone m1 && motionDone m2
-
-            MoveTo m1 m2 ->
-                motionDone m1 && motionDone m2
-
-            Line m1 m2 ->
-                motionDone m1 && motionDone m2
-
-            LineTo m1 m2 ->
-                motionDone m1 && motionDone m2
-
-            Horizontal motion ->
-                motionDone motion
-
-            HorizontalTo motion ->
-                motionDone motion
-
-            Vertical motion ->
-                motionDone motion
-
-            VerticalTo motion ->
-                motionDone motion
-
-            Curve coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            CurveTo coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            Quadratic coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            QuadraticTo coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            SmoothQuadratic coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            SmoothQuadraticTo coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            Smooth coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            SmoothTo coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            ArcCmd arc ->
-                motionDone arc.x
-                    && motionDone arc.y
-                    && motionDone arc.radiusX
-                    && motionDone arc.radiusY
-                    && motionDone arc.xAxisRotation
-
-            ArcTo arc ->
-                motionDone arc.x
-                    && motionDone arc.y
-                    && motionDone arc.radiusX
-                    && motionDone arc.radiusY
-                    && motionDone arc.xAxisRotation
-
-            Close ->
-                True
-
-
-{-| Set a new target for a style.
-If a property doesn't exist in the current style(listA), use a default instead.
-
-If a property doesn't exist as a target, then leave it as is.
-
-Order matters (mostly for transformation stacking)
-
--}
-startTowards : List Property -> List Property -> List Property
-startTowards current target =
-    List.filterMap
-        (\propPair ->
-            case propPair of
-                ( Nothing, Nothing ) ->
-                    Nothing
-
-                ( Just cur, Just to ) ->
-                    Just <| setTarget cur to
-
-                ( Just prop, Nothing ) ->
-                    Just prop
-
-                ( Nothing, Just target ) ->
-                    Just <| setTarget (default target) target
-        )
-        (zipPropertiesGreedy current target)
 
 
 setInterpolation : Interpolation -> Property -> Property
@@ -1151,111 +461,846 @@ setPathInterpolation interp cmd =
                 Close
 
 
+
+--------------------
+-- Animation Steps
+-------------------
+
+
+wait : Time -> Step msg
+wait till =
+    Wait till
+
+
+to : List Property -> Step msg
+to props =
+    To props
+
+
+set : List Property -> Step msg
+set props =
+    Set props
+
+
+send : msg -> Step msg
+send msg =
+    Send msg
+
+
+repeat : Int -> List (Step msg) -> Step msg
+repeat n steps =
+    Repeat n steps
+
+
+loop : List (Step msg) -> Step msg
+loop steps =
+    Loop steps
+
+
+initialState : Style -> State msg
+initialState current =
+    State
+        { steps = []
+        , style = current
+        , timing =
+            { current = 0
+            , dt = 0
+            }
+        , running = False
+        , interruption = []
+        }
+
+
+{-| Set an initial style for an animation.
+
+Uses standard defaults for interpolation
+
+-}
+style : List Property -> State msg
+style props =
+    initialState <| List.map setDefaultInterpolation props
+
+
+{-| Set an initial style for an animation and override the standard default for interpolation.
+
+-}
+styleWith : Interpolation -> List Property -> State msg
+styleWith interp props =
+    initialState <| List.map (setInterpolation interp) props
+
+
+{-| Set an initial style for an animation and specify the interpolation to be used for each property.
+
+Any property not listed will receive interpolation based on the standard defaults.
+-}
+styleWithEach : List ( Interpolation, Property ) -> State msg
+styleWithEach props =
+    initialState <| List.map (\( interp, prop ) -> setInterpolation interp prop) props
+
+
+{-| Add an animation to the queue, execiting once the current animation finishes
+
+-}
+queue : Animation msg -> State msg -> State msg
+queue steps (State model) =
+    State
+        { model
+            | steps = model.steps ++ steps
+            , running = True
+        }
+
+
+{-| Interrupt any running animations with the following animation.
+
+-}
+interrupt : Animation msg -> State msg -> State msg
+interrupt steps (State model) =
+    State
+        { model
+            | interruption = extractInitialWait steps :: model.interruption
+            , running = True
+        }
+
+
+{-| Sums all leading `Wait` steps and removes them from the animation.
+
+This is used because the wait at the start of an interruption works differently than a normal wait.
+
+
+-}
+extractInitialWait : Animation msg -> ( Time, Animation msg )
+extractInitialWait steps =
+    case List.head steps of
+        Nothing ->
+            ( 0, [] )
+
+        Just step ->
+            case step of
+                Wait till ->
+                    let
+                        ( additionalTime, remainingSteps ) =
+                            extractInitialWait (List.drop 1 steps)
+                    in
+                        ( till + additionalTime, remainingSteps )
+
+                _ ->
+                    ( 0, steps )
+
+
+{-| Create a subscription to AnimationFrame.times.
+
+It is throttled based on whether the current animation is running or not.
+
+-}
+subscription : State msg -> (Time -> msg) -> Sub msg
+subscription (State model) msg =
+    if model.running then
+        AnimationFrame.times msg
+    else
+        Sub.none
+
+
+{-| Used by Animation.Dict
+
+-}
+isRunning : State msg -> Bool
+isRunning (State model) =
+    model.running
+
+
+refreshTiming : Time -> Timing -> Timing
+refreshTiming now timing =
+    let
+        dt =
+            now - timing.current
+
+        -- dt is set to 0 if it is a large dt,
+        -- because that usually means that the user
+        -- left the browser window and came back.
+        -- Perhaps a better way of handling it would be to modify the spring equations
+        -- so that they can handle large dts without overshooting their target.
+        -- The initial frame is where current == 0, in which case dt should be 0 as well.
+    in
+        { current = now
+        , dt =
+            if (dt > 300) || (timing.current == 0) then
+                0.0
+            else
+                dt
+        }
+
+
+tick : Time -> State msg -> ( State msg, List (Cmd msg) )
+tick now (State model) =
+    let
+        -- set current and dt time
+        timing =
+            refreshTiming now model.timing
+
+        -- Resolve potential interrutions
+        ( readyInterruption, queuedInterruptions ) =
+            List.map
+                (\( wait, steps ) ->
+                    ( wait - timing.dt, steps )
+                )
+                model.interruption
+                |> List.partition
+                    (\( wait, steps ) -> wait <= 0)
+
+        -- if there are more than one matching interruptions,
+        -- we only take the first, which is the one that was most recently assigned.
+        queue =
+            case List.head readyInterruption of
+                Just ( wait, interrupt ) ->
+                    interrupt
+
+                Nothing ->
+                    model.steps
+
+        ( revisedStyle, sentMessages, revisedQueue ) =
+            resolveQueue model.style queue timing.dt
+    in
+        ( State
+            { model
+                | timing = timing
+                , interruption = queuedInterruptions
+                , running = List.length revisedQueue /= 0
+                , steps = revisedQueue
+                , style = revisedStyle
+            }
+        , List.map (\m -> Task.perform identity identity (Task.succeed m)) sentMessages
+        )
+
+
+resolveQueue : List Property -> Animation msg -> Time -> ( List Property, List msg, Animation msg )
+resolveQueue currentStyle steps dt =
+    case List.head steps of
+        Nothing ->
+            ( currentStyle, [], [] )
+
+        Just currentStep ->
+            case currentStep of
+                Wait n ->
+                    if n <= 0 then
+                        resolveQueue currentStyle (List.drop 1 steps) dt
+                    else
+                        -- What about a slight overage of time?
+                        ( currentStyle, [], (Wait <| n - dt) :: List.drop 1 steps )
+
+                Send msg ->
+                    let
+                        ( newStyle, msgs, remainingSteps ) =
+                            resolveQueue currentStyle (List.drop 1 steps) dt
+                    in
+                        ( newStyle, msg :: msgs, remainingSteps )
+
+                To target ->
+                    -- Add starting time to any properties with duration/easing
+                    resolveQueue
+                        (startTowards currentStyle target)
+                        (Step :: List.drop 1 steps)
+                        dt
+
+                Set props ->
+                    let
+                        replaced =
+                            replaceProps currentStyle props
+                    in
+                        resolveQueue replaced (List.drop 1 steps) dt
+
+                Step ->
+                    let
+                        stepped =
+                            step dt currentStyle
+                    in
+                        ( stepped
+                        , []
+                        , if List.all isDone stepped then
+                            List.drop 1 steps
+                          else
+                            steps
+                        )
+
+                Loop steps ->
+                    resolveQueue
+                        currentStyle
+                        (steps ++ [ Loop steps ])
+                        dt
+
+                Repeat n steps ->
+                    if n == 0 then
+                        ( currentStyle, [], List.drop 1 steps )
+                    else
+                        resolveQueue
+                            currentStyle
+                            (steps ++ [ Repeat (n - 1) steps ])
+                            dt
+
+
+replaceProps : List Property -> List Property -> List Property
+replaceProps props replacements =
+    let
+        replacementNames =
+            List.map propertyName replacements
+
+        removed =
+            List.filter (\prop -> not <| List.member (propertyName prop) replacementNames) props
+    in
+        removed ++ replacements
+
+
+{-| Property is done?
+
+TODO: What about interlaced property animations?
+
+-}
+isDone : Property -> Bool
+isDone property =
+    let
+        motionDone motion =
+            case motion.interpolation of
+                Spring _ ->
+                    motion.velocity == 0 && motion.position == motion.target
+
+                Easing eased ->
+                    eased.progress == 1
+    in
+        case property of
+            Display _ ->
+                True
+
+            ColorProperty _ m1 m2 m3 m4 ->
+                List.all motionDone [ m1, m2, m3, m4 ]
+
+            FloatProperty _ m1 ->
+                motionDone m1
+
+            LengthProperty _ m1 _ ->
+                motionDone m1
+
+            LengthProperty2 _ m1 m2 _ _ ->
+                motionDone m1 && motionDone m2
+
+            LengthProperty3 _ m1 m2 m3 _ _ _ ->
+                List.all motionDone [ m1, m2, m3 ]
+
+            AngleProperty _ m1 _ ->
+                motionDone m1
+
+            Points ms ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) ms
+
+            Path cmds ->
+                List.all isCmdDone cmds
+
+
+isCmdDone : PathCommand -> Bool
+isCmdDone cmd =
+    let
+        motionDone motion =
+            motion.velocity == 0 && motion.position == motion.target
+    in
+        case cmd of
+            Move m1 m2 ->
+                motionDone m1 && motionDone m2
+
+            MoveTo m1 m2 ->
+                motionDone m1 && motionDone m2
+
+            Line m1 m2 ->
+                motionDone m1 && motionDone m2
+
+            LineTo m1 m2 ->
+                motionDone m1 && motionDone m2
+
+            Horizontal motion ->
+                motionDone motion
+
+            HorizontalTo motion ->
+                motionDone motion
+
+            Vertical motion ->
+                motionDone motion
+
+            VerticalTo motion ->
+                motionDone motion
+
+            Curve coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            CurveTo coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            Quadratic coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            QuadraticTo coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            SmoothQuadratic coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            SmoothQuadraticTo coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            Smooth coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            SmoothTo coords ->
+                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+
+            ArcCmd arc ->
+                motionDone arc.x
+                    && motionDone arc.y
+                    && motionDone arc.radiusX
+                    && motionDone arc.radiusY
+                    && motionDone arc.xAxisRotation
+
+            ArcTo arc ->
+                motionDone arc.x
+                    && motionDone arc.y
+                    && motionDone arc.radiusX
+                    && motionDone arc.radiusY
+                    && motionDone arc.xAxisRotation
+
+            Close ->
+                True
+
+
+{-| Set a new target for a style.
+If a property doesn't exist in the current style(listA), use a default instead.
+
+If a property doesn't exist as a target, then leave it as is.
+
+Order matters (mostly for transformation stacking)
+
+-}
+startTowards : List Property -> List Property -> List Property
+startTowards current target =
+    List.filterMap
+        (\propPair ->
+            case propPair of
+                ( Nothing, Nothing ) ->
+                    Nothing
+
+                ( Just cur, Just to ) ->
+                    Just <| setTarget cur to
+
+                ( Just prop, Nothing ) ->
+                    Just prop
+
+                ( Nothing, Just target ) ->
+                    Just <| setTarget (setDefaultInterpolation <| default target) target
+        )
+        (zipPropertiesGreedy current target)
+
+
 setTarget : Property -> Property -> Property
 setTarget current newTarget =
-    case current of
-        Display mode ->
-            Display mode
+    let
+        setMotionTarget motion targetMotion =
+            case motion.interpolation of
+                Spring _ ->
+                    { motion | target = targetMotion.position }
 
-        ColorProperty name m1 m2 m3 m4 ->
-            case newTarget of
-                ColorProperty _ t1 t2 t3 t4 ->
-                    ColorProperty name
-                        { m1 | target = t1.position }
-                        { m2 | target = t2.position }
-                        { m3 | target = t3.position }
-                        { m4 | target = t4.position }
+                Easing ease ->
+                    { motion
+                        | target = targetMotion.position
+                        , interpolation =
+                            Easing
+                                { ease | start = motion.position }
+                    }
+    in
+        case current of
+            Display mode ->
+                Display mode
 
-                _ ->
-                    current
+            ColorProperty name m1 m2 m3 m4 ->
+                case newTarget of
+                    ColorProperty _ t1 t2 t3 t4 ->
+                        ColorProperty name
+                            (setMotionTarget m1 t1)
+                            (setMotionTarget m2 t2)
+                            (setMotionTarget m3 t3)
+                            (setMotionTarget m4 t4)
 
-        FloatProperty name m1 ->
-            case newTarget of
-                FloatProperty _ t1 ->
-                    FloatProperty name
-                        { m1 | target = t1.position }
+                    _ ->
+                        current
 
-                _ ->
-                    current
+            FloatProperty name m1 ->
+                case newTarget of
+                    FloatProperty _ t1 ->
+                        FloatProperty name
+                            (setMotionTarget m1 t1)
 
-        LengthProperty name m1 unit ->
-            case newTarget of
-                LengthProperty _ t1 _ ->
-                    LengthProperty name
-                        { m1 | target = t1.position }
-                        unit
+                    _ ->
+                        current
 
-                _ ->
-                    current
+            LengthProperty name m1 unit ->
+                case newTarget of
+                    LengthProperty _ t1 _ ->
+                        LengthProperty name
+                            (setMotionTarget m1 t1)
+                            unit
 
-        LengthProperty2 name m1 m2 unit1 unit2 ->
-            case newTarget of
-                LengthProperty2 _ t1 t2 _ _ ->
-                    LengthProperty2 name
-                        { m1 | target = t1.position }
-                        { m2 | target = t2.position }
-                        unit1
-                        unit2
+                    _ ->
+                        current
 
-                _ ->
-                    current
+            LengthProperty2 name m1 m2 unit1 unit2 ->
+                case newTarget of
+                    LengthProperty2 _ t1 t2 _ _ ->
+                        LengthProperty2 name
+                            (setMotionTarget m1 t1)
+                            (setMotionTarget m2 t2)
+                            unit1
+                            unit2
 
-        LengthProperty3 name m1 m2 m3 unit1 unit2 unit3 ->
-            case newTarget of
-                LengthProperty3 _ t1 t2 t3 _ _ _ ->
-                    LengthProperty3 name
-                        { m1 | target = t1.position }
-                        { m2 | target = t2.position }
-                        { m3 | target = t3.position }
-                        unit1
-                        unit2
-                        unit3
+                    _ ->
+                        current
 
-                _ ->
-                    current
+            LengthProperty3 name m1 m2 m3 unit1 unit2 unit3 ->
+                case newTarget of
+                    LengthProperty3 _ t1 t2 t3 _ _ _ ->
+                        LengthProperty3 name
+                            (setMotionTarget m1 t1)
+                            (setMotionTarget m2 t2)
+                            (setMotionTarget m3 t3)
+                            unit1
+                            unit2
+                            unit3
 
-        AngleProperty name m1 unit ->
-            case newTarget of
-                AngleProperty _ t1 _ ->
-                    AngleProperty name
-                        { m1 | target = t1.position }
-                        unit
+                    _ ->
+                        current
 
-                _ ->
-                    current
+            AngleProperty name m1 unit ->
+                case newTarget of
+                    AngleProperty _ t1 _ ->
+                        AngleProperty name
+                            (setMotionTarget m1 t1)
+                            unit
 
-        Points currentPts ->
-            case newTarget of
-                Points targetPts ->
-                    let
-                        ( m1s, m2s ) =
-                            matchPoints currentPts targetPts
-                    in
-                        Points <|
+                    _ ->
+                        current
+
+            Points currentPts ->
+                case newTarget of
+                    Points targetPts ->
+                        let
+                            ( m1s, m2s ) =
+                                matchPoints currentPts targetPts
+                        in
+                            Points <|
+                                List.map2
+                                    (\( x1, y1 ) ( x2, y2 ) ->
+                                        ( (setMotionTarget x1 x2)
+                                        , (setMotionTarget y1 y2)
+                                        )
+                                    )
+                                    m1s
+                                    m2s
+
+                    _ ->
+                        current
+
+            --
+            Path cmds ->
+                case newTarget of
+                    Path targets ->
+                        Path <|
+                            List.map2
+                                setPathTarget
+                                cmds
+                                targets
+
+                    _ ->
+                        current
+
+
+setPathTarget : PathCommand -> PathCommand -> PathCommand
+setPathTarget cmd targetCmd =
+    let
+        setMotionTarget motion targetMotion =
+            case motion.interpolation of
+                Spring _ ->
+                    { motion | target = targetMotion.position }
+
+                Easing ease ->
+                    { motion
+                        | target = targetMotion.position
+                        , interpolation =
+                            Easing
+                                { ease | start = motion.position }
+                    }
+    in
+        case cmd of
+            Move m1 m2 ->
+                case targetCmd of
+                    Move t1 t2 ->
+                        Move
+                            (setMotionTarget m1 t1)
+                            (setMotionTarget m2 t2)
+
+                    _ ->
+                        cmd
+
+            MoveTo m1 m2 ->
+                case targetCmd of
+                    MoveTo t1 t2 ->
+                        MoveTo
+                            (setMotionTarget m1 t1)
+                            (setMotionTarget m2 t2)
+
+                    _ ->
+                        cmd
+
+            Line m1 m2 ->
+                case targetCmd of
+                    Line t1 t2 ->
+                        Line
+                            (setMotionTarget m1 t1)
+                            (setMotionTarget m2 t2)
+
+                    _ ->
+                        cmd
+
+            LineTo m1 m2 ->
+                case targetCmd of
+                    LineTo t1 t2 ->
+                        LineTo
+                            (setMotionTarget m1 t1)
+                            (setMotionTarget m2 t2)
+
+                    _ ->
+                        cmd
+
+            Horizontal m1 ->
+                case targetCmd of
+                    Horizontal t1 ->
+                        Horizontal
+                            (setMotionTarget m1 t1)
+
+                    _ ->
+                        cmd
+
+            HorizontalTo m1 ->
+                case targetCmd of
+                    HorizontalTo t1 ->
+                        HorizontalTo
+                            (setMotionTarget m1 t1)
+
+                    _ ->
+                        cmd
+
+            Vertical m1 ->
+                case targetCmd of
+                    Vertical t1 ->
+                        Vertical
+                            (setMotionTarget m1 t1)
+
+                    _ ->
+                        cmd
+
+            VerticalTo m1 ->
+                case targetCmd of
+                    VerticalTo t1 ->
+                        VerticalTo
+                            (setMotionTarget m1 t1)
+
+                    _ ->
+                        cmd
+
+            Curve coords ->
+                case targetCmd of
+                    Curve targetCoords ->
+                        Curve <|
                             List.map2
                                 (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( { x1 | target = x2.position }
-                                    , { y1 | target = y2.position }
+                                    ( (setMotionTarget x1 x2)
+                                    , (setMotionTarget y1 y2)
                                     )
                                 )
-                                m1s
-                                m2s
+                                coords
+                                targetCoords
 
-                _ ->
-                    current
+                    _ ->
+                        cmd
 
-        --
-        Path cmds ->
-            case newTarget of
-                Path targets ->
-                    Path <|
-                        List.map2
-                            setPathTarget
-                            cmds
-                            targets
+            CurveTo coords ->
+                case targetCmd of
+                    CurveTo targetCoords ->
+                        CurveTo <|
+                            List.map2
+                                (\( x1, y1 ) ( x2, y2 ) ->
+                                    ( (setMotionTarget x1 x2)
+                                    , (setMotionTarget y1 y2)
+                                    )
+                                )
+                                coords
+                                targetCoords
 
-                _ ->
-                    current
+                    _ ->
+                        cmd
+
+            Quadratic coords ->
+                case targetCmd of
+                    Quadratic targetCoords ->
+                        Quadratic <|
+                            List.map2
+                                (\( x1, y1 ) ( x2, y2 ) ->
+                                    ( (setMotionTarget x1 x2)
+                                    , (setMotionTarget y1 y2)
+                                    )
+                                )
+                                coords
+                                targetCoords
+
+                    _ ->
+                        cmd
+
+            QuadraticTo coords ->
+                case targetCmd of
+                    QuadraticTo targetCoords ->
+                        QuadraticTo <|
+                            List.map2
+                                (\( x1, y1 ) ( x2, y2 ) ->
+                                    ( (setMotionTarget x1 x2)
+                                    , (setMotionTarget y1 y2)
+                                    )
+                                )
+                                coords
+                                targetCoords
+
+                    _ ->
+                        cmd
+
+            SmoothQuadratic coords ->
+                case targetCmd of
+                    SmoothQuadratic targetCoords ->
+                        SmoothQuadratic <|
+                            List.map2
+                                (\( x1, y1 ) ( x2, y2 ) ->
+                                    ( (setMotionTarget x1 x2)
+                                    , (setMotionTarget y1 y2)
+                                    )
+                                )
+                                coords
+                                targetCoords
+
+                    _ ->
+                        cmd
+
+            SmoothQuadraticTo coords ->
+                case targetCmd of
+                    SmoothQuadraticTo targetCoords ->
+                        SmoothQuadraticTo <|
+                            List.map2
+                                (\( x1, y1 ) ( x2, y2 ) ->
+                                    ( (setMotionTarget x1 x2)
+                                    , (setMotionTarget y1 y2)
+                                    )
+                                )
+                                coords
+                                targetCoords
+
+                    _ ->
+                        cmd
+
+            Smooth coords ->
+                case targetCmd of
+                    Smooth targetCoords ->
+                        Smooth <|
+                            List.map2
+                                (\( x1, y1 ) ( x2, y2 ) ->
+                                    ( (setMotionTarget x1 x2)
+                                    , (setMotionTarget y1 y2)
+                                    )
+                                )
+                                coords
+                                targetCoords
+
+                    _ ->
+                        cmd
+
+            SmoothTo coords ->
+                case targetCmd of
+                    SmoothTo targetCoords ->
+                        SmoothTo <|
+                            List.map2
+                                (\( x1, y1 ) ( x2, y2 ) ->
+                                    ( (setMotionTarget x1 x2)
+                                    , (setMotionTarget y1 y2)
+                                    )
+                                )
+                                coords
+                                targetCoords
+
+                    _ ->
+                        cmd
+
+            ArcCmd arc ->
+                case targetCmd of
+                    ArcCmd target ->
+                        ArcCmd <|
+                            let
+                                x =
+                                    arc.x
+
+                                y =
+                                    arc.y
+
+                                radiusX =
+                                    arc.radiusX
+
+                                radiusY =
+                                    arc.radiusY
+
+                                xAxis =
+                                    arc.xAxisRotation
+                            in
+                                { arc
+                                    | x = (setMotionTarget x target.x)
+                                    , y = (setMotionTarget y target.y)
+                                    , radiusX = (setMotionTarget radiusX target.radiusX)
+                                    , radiusY = (setMotionTarget radiusY target.radiusY)
+                                    , xAxisRotation = (setMotionTarget xAxis target.xAxisRotation)
+                                }
+
+                    _ ->
+                        cmd
+
+            ArcTo arc ->
+                case targetCmd of
+                    ArcTo target ->
+                        ArcTo <|
+                            let
+                                x =
+                                    arc.x
+
+                                y =
+                                    arc.y
+
+                                radiusX =
+                                    arc.radiusX
+
+                                radiusY =
+                                    arc.radiusY
+
+                                xAxis =
+                                    arc.xAxisRotation
+                            in
+                                { arc
+                                    | x = (setMotionTarget x target.x)
+                                    , y = (setMotionTarget y target.y)
+                                    , radiusX = (setMotionTarget radiusX target.radiusX)
+                                    , radiusY = (setMotionTarget radiusY target.radiusY)
+                                    , xAxisRotation = (setMotionTarget xAxis target.xAxisRotation)
+                                }
+
+                    _ ->
+                        cmd
+
+            Close ->
+                Close
 
 
 {-| We match two sets of properties that have any degree of overlap.
@@ -1270,6 +1315,9 @@ Order matters.
 zipPropertiesGreedy : List Property -> List Property -> List ( Maybe Property, Maybe Property )
 zipPropertiesGreedy listA listB =
     let
+        propertyMatch prop1 prop2 =
+            propertyName prop1 == propertyName prop2
+
         ( _, _, zipped ) =
             List.foldl
                 (\_ ( stackA, stackB, result ) ->
@@ -1307,11 +1355,6 @@ zipPropertiesGreedy listA listB =
         zipped
 
 
-propertyMatch : Property -> Property -> Bool
-propertyMatch prop1 prop2 =
-    propertyName prop1 == propertyName prop2
-
-
 {-| Move one step in our interpolation strategy.
 
 For angle properties, wrap at 360 and -360 degrees.
@@ -1325,15 +1368,15 @@ step dt props =
                     Display mode
 
                 FloatProperty name motion ->
-                    FloatProperty name (stepSpring dt motion)
+                    FloatProperty name (stepInterpolation dt motion)
 
                 LengthProperty name motion unit ->
-                    LengthProperty name (stepSpring dt motion) unit
+                    LengthProperty name (stepInterpolation dt motion) unit
 
                 AngleProperty name motion unit ->
                     let
                         stepped =
-                            stepSpring dt motion
+                            stepInterpolation dt motion
 
                         wrapped =
                             if stepped.position >= 360 && stepped.target >= 360 then
@@ -1361,33 +1404,33 @@ step dt props =
 
                 LengthProperty2 name motion1 motion2 unit1 unit2 ->
                     LengthProperty2 name
-                        (stepSpring dt motion1)
-                        (stepSpring dt motion2)
+                        (stepInterpolation dt motion1)
+                        (stepInterpolation dt motion2)
                         unit1
                         unit2
 
                 LengthProperty3 name motion1 motion2 motion3 unit1 unit2 unit3 ->
                     LengthProperty3 name
-                        (stepSpring dt motion1)
-                        (stepSpring dt motion2)
-                        (stepSpring dt motion3)
+                        (stepInterpolation dt motion1)
+                        (stepInterpolation dt motion2)
+                        (stepInterpolation dt motion3)
                         unit1
                         unit2
                         unit3
 
                 ColorProperty name red green blue alpha ->
                     ColorProperty name
-                        (stepSpring dt red)
-                        (stepSpring dt green)
-                        (stepSpring dt blue)
-                        (stepSpring dt alpha)
+                        (stepInterpolation dt red)
+                        (stepInterpolation dt green)
+                        (stepInterpolation dt blue)
+                        (stepInterpolation dt alpha)
 
                 Points points ->
                     Points <|
                         List.map
                             (\( x, y ) ->
-                                ( stepSpring dt x
-                                , stepSpring dt y
+                                ( stepInterpolation dt x
+                                , stepInterpolation dt y
                                 )
                             )
                             points
@@ -1405,8 +1448,8 @@ stepPath dt cmd =
         stepCoords coords =
             List.map
                 (\( x, y ) ->
-                    ( stepSpring dt x
-                    , stepSpring dt y
+                    ( stepInterpolation dt x
+                    , stepInterpolation dt y
                     )
                 )
                 coords
@@ -1414,39 +1457,39 @@ stepPath dt cmd =
         case cmd of
             Move m1 m2 ->
                 Move
-                    (stepSpring dt m1)
-                    (stepSpring dt m2)
+                    (stepInterpolation dt m1)
+                    (stepInterpolation dt m2)
 
             MoveTo m1 m2 ->
                 MoveTo
-                    (stepSpring dt m1)
-                    (stepSpring dt m2)
+                    (stepInterpolation dt m1)
+                    (stepInterpolation dt m2)
 
             Line m1 m2 ->
                 Line
-                    (stepSpring dt m1)
-                    (stepSpring dt m2)
+                    (stepInterpolation dt m1)
+                    (stepInterpolation dt m2)
 
             LineTo m1 m2 ->
                 LineTo
-                    (stepSpring dt m1)
-                    (stepSpring dt m2)
+                    (stepInterpolation dt m1)
+                    (stepInterpolation dt m2)
 
             Horizontal motion ->
                 Horizontal
-                    (stepSpring dt motion)
+                    (stepInterpolation dt motion)
 
             HorizontalTo motion ->
                 HorizontalTo
-                    (stepSpring dt motion)
+                    (stepInterpolation dt motion)
 
             Vertical motion ->
                 Vertical
-                    (stepSpring dt motion)
+                    (stepInterpolation dt motion)
 
             VerticalTo motion ->
                 VerticalTo
-                    (stepSpring dt motion)
+                    (stepInterpolation dt motion)
 
             Curve coords ->
                 Curve <| stepCoords coords
@@ -1475,21 +1518,21 @@ stepPath dt cmd =
             ArcCmd arc ->
                 ArcCmd <|
                     { arc
-                        | x = stepSpring dt arc.x
-                        , y = stepSpring dt arc.y
-                        , radiusX = stepSpring dt arc.radiusX
-                        , radiusY = stepSpring dt arc.radiusY
-                        , xAxisRotation = stepSpring dt arc.xAxisRotation
+                        | x = stepInterpolation dt arc.x
+                        , y = stepInterpolation dt arc.y
+                        , radiusX = stepInterpolation dt arc.radiusX
+                        , radiusY = stepInterpolation dt arc.radiusY
+                        , xAxisRotation = stepInterpolation dt arc.xAxisRotation
                     }
 
             ArcTo arc ->
                 ArcTo <|
                     { arc
-                        | x = stepSpring dt arc.x
-                        , y = stepSpring dt arc.y
-                        , radiusX = stepSpring dt arc.radiusX
-                        , radiusY = stepSpring dt arc.radiusY
-                        , xAxisRotation = stepSpring dt arc.xAxisRotation
+                        | x = stepInterpolation dt arc.x
+                        , y = stepInterpolation dt arc.y
+                        , radiusX = stepInterpolation dt arc.radiusX
+                        , radiusY = stepInterpolation dt arc.radiusY
+                        , xAxisRotation = stepInterpolation dt arc.xAxisRotation
                     }
 
             Close ->
@@ -1508,8 +1551,8 @@ vTolerance =
 that is attached to where the easing function says the value should be.
 
 -}
-stepSpring : Time -> Motion -> Motion
-stepSpring dtms motion =
+stepInterpolation : Time -> Motion -> Motion
+stepInterpolation dtms motion =
     case motion.interpolation of
         Spring { stiffness, damping } ->
             let
@@ -1545,7 +1588,7 @@ stepSpring dtms motion =
                         , velocity = newVelocity
                     }
 
-        Easing { progress, duration, ease } ->
+        Easing { progress, duration, ease, start } ->
             let
                 newProgress =
                     if (dtms / duration) + progress < 1 then
@@ -1553,70 +1596,38 @@ stepSpring dtms motion =
                     else
                         1
 
-                dEased =
-                    (ease newProgress) - (ease progress)
+                eased =
+                    ease newProgress
 
                 distance =
-                    motion.target - motion.position
+                    motion.target - start
 
-                newValue =
-                    (dEased * distance) + motion.position
+                newPos =
+                    eased * distance
 
-                sprungMotion =
-                    stepSpring dtms
-                        { motion
-                            | target = newValue
-                            , interpolation =
-                                Spring { stiffness = 500, damping = 0 }
-                        }
-
-                updatedProgress =
-                    Easing
-                        { progress = newProgress
-                        , duration = duration
-                        , ease = ease
-                        }
+                newVelocity =
+                    if newProgress == 1 then
+                        0
+                    else
+                        (newPos - motion.position) / dtms
             in
-                { sprungMotion
-                    | target = motion.target
-                    , interpolation = updatedProgress
+                { motion
+                    | position = newPos
+                    , velocity = newVelocity
+                    , interpolation =
+                        Easing
+                            { progress = newProgress
+                            , duration = duration
+                            , ease = ease
+                            , start = start
+                            }
                 }
 
 
-{-| Given a property, return the same property with the value set to a default.
 
-TODO: Path property could have a more intelligent default
--}
-default : Property -> Property
-default property =
-    case property of
-        Display mode ->
-            Display Block
-
-        ColorProperty name _ _ _ _ ->
-            Debug.log (name ++ " has no initial value.  Defaulting to transparent white.") <|
-                colorProp name (Color.rgba 255 255 255 0)
-
-        FloatProperty name _ ->
-            unitless name 0
-
-        LengthProperty name _ unit ->
-            length name ( 0, unit )
-
-        LengthProperty2 name _ _ unit1 unit2 ->
-            length2 name ( 0, unit1 ) ( 0, unit2 )
-
-        LengthProperty3 name _ _ _ unit1 unit2 unit3 ->
-            length3 name ( 0, unit1 ) ( 0, unit2 ) ( 0, unit3 )
-
-        AngleProperty name _ unit ->
-            angleProp name ( 0, unit )
-
-        Points pnts ->
-            Points <| List.map (\_ -> ( initMotion 0, initMotion 0 )) pnts
-
-        Path cmds ->
-            Path []
+------------------------
+-- Properties and Units
+------------------------
 
 
 type LengthUnit
@@ -2095,12 +2106,17 @@ translate3d x y z =
 
 translateX : Length -> Property
 translateX len =
-    length "translate-x" len
+    length "translateX" len
 
 
 translateY : Length -> Property
 translateY len =
-    length "translate-y" len
+    length "translateY" len
+
+
+translateZ : Length -> Property
+translateZ len =
+    length "translateZ" len
 
 
 scale : Float -> Property
@@ -2116,17 +2132,17 @@ scale x =
 
 scaleX : Float -> Property
 scaleX x =
-    unitless "scale-x" x
+    unitless "scaleX" x
 
 
 scaleY : Float -> Property
 scaleY x =
-    unitless "scale-y" x
+    unitless "scaleY" x
 
 
 scaleZ : Float -> Property
 scaleZ x =
-    unitless "scale-z" x
+    unitless "scaleZ" x
 
 
 rotate : Angle -> Property
@@ -2140,17 +2156,17 @@ rotate angle =
 
 rotateX : Angle -> Property
 rotateX angle =
-    angleProp "rotate-x" angle
+    angleProp "rotateX" angle
 
 
 rotateY : Angle -> Property
 rotateY angle =
-    angleProp "rotate-y" angle
+    angleProp "rotateY" angle
 
 
 rotateZ : Angle -> Property
 rotateZ angle =
-    angleProp "rotate-z" angle
+    angleProp "rotateZ" angle
 
 
 
@@ -2159,12 +2175,12 @@ rotateZ angle =
 
 skewX : Angle -> Property
 skewX angle =
-    angleProp "skew-x" angle
+    angleProp "skewX" angle
 
 
 skewY : Angle -> Property
 skewY angle =
-    angleProp "skew-y" angle
+    angleProp "skewY" angle
 
 
 perspective : Float -> Property
@@ -2406,279 +2422,6 @@ type alias ArcMotion =
     }
 
 
-setPathTarget : PathCommand -> PathCommand -> PathCommand
-setPathTarget cmd targetCmd =
-    case cmd of
-        Move m1 m2 ->
-            case targetCmd of
-                Move t1 t2 ->
-                    Move
-                        { m1 | target = t1.position }
-                        { m2 | target = t2.position }
-
-                _ ->
-                    cmd
-
-        MoveTo m1 m2 ->
-            case targetCmd of
-                MoveTo t1 t2 ->
-                    MoveTo
-                        { m1 | target = t1.position }
-                        { m2 | target = t2.position }
-
-                _ ->
-                    cmd
-
-        Line m1 m2 ->
-            case targetCmd of
-                Line t1 t2 ->
-                    Line
-                        { m1 | target = t1.position }
-                        { m2 | target = t2.position }
-
-                _ ->
-                    cmd
-
-        LineTo m1 m2 ->
-            case targetCmd of
-                LineTo t1 t2 ->
-                    LineTo
-                        { m1 | target = t1.position }
-                        { m2 | target = t2.position }
-
-                _ ->
-                    cmd
-
-        Horizontal motion ->
-            case targetCmd of
-                Horizontal target ->
-                    Horizontal
-                        { motion | target = target.position }
-
-                _ ->
-                    cmd
-
-        HorizontalTo motion ->
-            case targetCmd of
-                HorizontalTo target ->
-                    HorizontalTo
-                        { motion | target = target.position }
-
-                _ ->
-                    cmd
-
-        Vertical motion ->
-            case targetCmd of
-                Vertical target ->
-                    Vertical
-                        { motion | target = target.position }
-
-                _ ->
-                    cmd
-
-        VerticalTo motion ->
-            case targetCmd of
-                VerticalTo target ->
-                    VerticalTo
-                        { motion | target = target.position }
-
-                _ ->
-                    cmd
-
-        Curve coords ->
-            case targetCmd of
-                Curve targetCoords ->
-                    Curve <|
-                        List.map2
-                            (\( x1, y1 ) ( x2, y2 ) ->
-                                ( { x1 | target = x2.position }
-                                , { y1 | target = y2.position }
-                                )
-                            )
-                            coords
-                            targetCoords
-
-                _ ->
-                    cmd
-
-        CurveTo coords ->
-            case targetCmd of
-                CurveTo targetCoords ->
-                    CurveTo <|
-                        List.map2
-                            (\( x1, y1 ) ( x2, y2 ) ->
-                                ( { x1 | target = x2.position }
-                                , { y1 | target = y2.position }
-                                )
-                            )
-                            coords
-                            targetCoords
-
-                _ ->
-                    cmd
-
-        Quadratic coords ->
-            case targetCmd of
-                Quadratic targetCoords ->
-                    Quadratic <|
-                        List.map2
-                            (\( x1, y1 ) ( x2, y2 ) ->
-                                ( { x1 | target = x2.position }
-                                , { y1 | target = y2.position }
-                                )
-                            )
-                            coords
-                            targetCoords
-
-                _ ->
-                    cmd
-
-        QuadraticTo coords ->
-            case targetCmd of
-                QuadraticTo targetCoords ->
-                    QuadraticTo <|
-                        List.map2
-                            (\( x1, y1 ) ( x2, y2 ) ->
-                                ( { x1 | target = x2.position }
-                                , { y1 | target = y2.position }
-                                )
-                            )
-                            coords
-                            targetCoords
-
-                _ ->
-                    cmd
-
-        SmoothQuadratic coords ->
-            case targetCmd of
-                SmoothQuadratic targetCoords ->
-                    SmoothQuadratic <|
-                        List.map2
-                            (\( x1, y1 ) ( x2, y2 ) ->
-                                ( { x1 | target = x2.position }
-                                , { y1 | target = y2.position }
-                                )
-                            )
-                            coords
-                            targetCoords
-
-                _ ->
-                    cmd
-
-        SmoothQuadraticTo coords ->
-            case targetCmd of
-                SmoothQuadraticTo targetCoords ->
-                    SmoothQuadraticTo <|
-                        List.map2
-                            (\( x1, y1 ) ( x2, y2 ) ->
-                                ( { x1 | target = x2.position }
-                                , { y1 | target = y2.position }
-                                )
-                            )
-                            coords
-                            targetCoords
-
-                _ ->
-                    cmd
-
-        Smooth coords ->
-            case targetCmd of
-                Smooth targetCoords ->
-                    Smooth <|
-                        List.map2
-                            (\( x1, y1 ) ( x2, y2 ) ->
-                                ( { x1 | target = x2.position }
-                                , { y1 | target = y2.position }
-                                )
-                            )
-                            coords
-                            targetCoords
-
-                _ ->
-                    cmd
-
-        SmoothTo coords ->
-            case targetCmd of
-                SmoothTo targetCoords ->
-                    SmoothTo <|
-                        List.map2
-                            (\( x1, y1 ) ( x2, y2 ) ->
-                                ( { x1 | target = x2.position }
-                                , { y1 | target = y2.position }
-                                )
-                            )
-                            coords
-                            targetCoords
-
-                _ ->
-                    cmd
-
-        ArcCmd arc ->
-            case targetCmd of
-                ArcCmd target ->
-                    ArcCmd <|
-                        let
-                            x =
-                                arc.x
-
-                            y =
-                                arc.y
-
-                            radiusX =
-                                arc.radiusX
-
-                            radiusY =
-                                arc.radiusY
-
-                            xAxis =
-                                arc.xAxisRotation
-                        in
-                            { arc
-                                | x = { x | target = target.x.position }
-                                , y = { y | target = target.y.position }
-                                , radiusX = { radiusX | target = target.radiusX.position }
-                                , radiusY = { radiusY | target = target.radiusY.position }
-                                , xAxisRotation = { xAxis | target = target.xAxisRotation.position }
-                            }
-
-                _ ->
-                    cmd
-
-        ArcTo arc ->
-            case targetCmd of
-                ArcTo target ->
-                    ArcTo <|
-                        let
-                            x =
-                                arc.x
-
-                            y =
-                                arc.y
-
-                            radiusX =
-                                arc.radiusX
-
-                            radiusY =
-                                arc.radiusY
-
-                            xAxis =
-                                arc.xAxisRotation
-                        in
-                            { arc
-                                | x = { x | target = target.x.position }
-                                , y = { y | target = target.y.position }
-                                , radiusX = { radiusX | target = target.radiusX.position }
-                                , radiusY = { radiusY | target = target.radiusY.position }
-                                , xAxisRotation = { xAxis | target = target.xAxisRotation.position }
-                            }
-
-                _ ->
-                    cmd
-
-        Close ->
-            Close
-
-
 initArcMotion : Arc -> Bool -> Bool -> ArcMotion
 initArcMotion arc large sweep =
     { x = initMotion arc.x
@@ -2783,3 +2526,326 @@ matchPoints points1 points2 =
                     )
         else
             ( points1, points2 )
+
+
+
+-------------------------
+-- Rendering
+-------------------------
+
+
+{-| Combine "transform" based properties into a single css property.
+
+-}
+render : State msg -> List (Html.Attribute msg)
+render (State model) =
+    let
+        ( attrProps, styleProps ) =
+            List.partition isAttr model.style
+
+        ( style, transforms ) =
+            List.foldl
+                (\prop ( style, transforms ) ->
+                    if isTransformation prop then
+                        ( style, transforms ++ [ prop ] )
+                    else
+                        ( style ++ [ prop ], transforms )
+                )
+                ( [], [] )
+                styleProps
+
+        renderedStyle =
+            List.map (\prop -> ( propertyName prop, propertyValue prop " " )) style
+
+        styleAttr =
+            if List.length transforms == 0 then
+                Html.Attributes.style renderedStyle
+            else
+                Html.Attributes.style <|
+                    ( "transform"
+                    , String.concat <|
+                        List.map
+                            (\prop ->
+                                propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
+                            )
+                            transforms
+                    )
+                        :: renderedStyle
+
+        otherAttrs =
+            List.filterMap renderAttrs attrProps
+    in
+        styleAttr :: otherAttrs
+
+
+renderAttrs : Property -> Maybe (Html.Attribute msg)
+renderAttrs prop =
+    case prop of
+        Points pts ->
+            Just <| Svg.Attributes.points <| propertyValue (Points pts) " "
+
+        Path cmds ->
+            Just <| Svg.Attributes.d <| propertyValue (Path cmds) " "
+
+        _ ->
+            Nothing
+
+
+isTransformation : Property -> Bool
+isTransformation prop =
+    List.member (propertyName prop)
+        [ "rotate"
+        , "rotate3d"
+        , "transform"
+        , "transform3d"
+        , "translateX"
+        , "translateY"
+        , "scale"
+        , "scale3d"
+        , "scaleX"
+        , "scaleY"
+        , "scaleZ"
+        , "skew"
+        , "skewX"
+        , "skewY"
+        , "perspective"
+        ]
+
+
+{-| This property can only be represented as an html attribute
+-}
+isAttr : Property -> Bool
+isAttr prop =
+    case prop of
+        Points _ ->
+            True
+
+        Path _ ->
+            True
+
+        _ ->
+            False
+
+
+propertyName : Property -> String
+propertyName prop =
+    case prop of
+        Display _ ->
+            "display"
+
+        ColorProperty name _ _ _ _ ->
+            name
+
+        FloatProperty name _ ->
+            name
+
+        LengthProperty name _ _ ->
+            name
+
+        LengthProperty2 name _ _ _ _ ->
+            name
+
+        LengthProperty3 name _ _ _ _ _ _ ->
+            name
+
+        AngleProperty name _ _ ->
+            name
+
+        Points _ ->
+            "points"
+
+        Path _ ->
+            "path"
+
+
+displayModeName : DisplayMode -> String
+displayModeName mode =
+    case mode of
+        None ->
+            "none"
+
+        Inline ->
+            "inline"
+
+        InlineBlock ->
+            "inline-block"
+
+        Block ->
+            "block"
+
+        Flex ->
+            "flex"
+
+        InlineFlex ->
+            "inline-flex"
+
+        ListItem ->
+            "list-item"
+
+
+propertyValue : Property -> String -> String
+propertyValue prop delim =
+    case prop of
+        Display mode ->
+            displayModeName mode
+
+        ColorProperty _ r g b a ->
+            "rgba("
+                ++ toString (round r.position)
+                ++ ","
+                ++ toString (round g.position)
+                ++ ","
+                ++ toString (round b.position)
+                ++ ","
+                ++ toString a.position
+                ++ ")"
+
+        FloatProperty _ x ->
+            toString x.position
+
+        LengthProperty _ x unit ->
+            toString x.position ++ lengthUnitName unit
+
+        LengthProperty2 _ x y unit1 unit2 ->
+            toString x.position
+                ++ lengthUnitName unit1
+                ++ delim
+                ++ toString y.position
+                ++ lengthUnitName unit2
+
+        LengthProperty3 _ x y z unit1 unit2 unit3 ->
+            toString x.position
+                ++ lengthUnitName unit1
+                ++ delim
+                ++ toString y.position
+                ++ lengthUnitName unit2
+                ++ delim
+                ++ toString z.position
+                ++ lengthUnitName unit3
+
+        AngleProperty _ x unit ->
+            toString x.position ++ angleUnitName unit
+
+        Points coords ->
+            String.join " " <|
+                List.map
+                    (\( x, y ) ->
+                        toString x.position ++ "," ++ toString y.position
+                    )
+                    coords
+
+        Path cmds ->
+            String.join " " <|
+                List.map cmdValue cmds
+
+
+cmdValue : PathCommand -> String
+cmdValue cmd =
+    let
+        renderPoints coords =
+            String.join " " <|
+                List.map
+                    (\( x, y ) ->
+                        toString x.position ++ "," ++ toString y.position
+                    )
+                    coords
+    in
+        case cmd of
+            Move x y ->
+                "m " ++ toString x.position ++ "," ++ toString y.position
+
+            MoveTo x y ->
+                "M " ++ toString x.position ++ "," ++ toString y.position
+
+            Line x y ->
+                "l " ++ toString x.position ++ "," ++ toString y.position
+
+            LineTo x y ->
+                "L " ++ toString x.position ++ "," ++ toString y.position
+
+            Horizontal a ->
+                "h " ++ toString a.position
+
+            HorizontalTo a ->
+                "H " ++ toString a.position
+
+            Vertical a ->
+                "v " ++ toString a.position
+
+            VerticalTo a ->
+                "V " ++ toString a.position
+
+            Curve points ->
+                "c " ++ renderPoints points
+
+            CurveTo points ->
+                "C " ++ renderPoints points
+
+            Quadratic points ->
+                "q " ++ renderPoints points
+
+            QuadraticTo points ->
+                "Q " ++ renderPoints points
+
+            SmoothQuadratic points ->
+                "t " ++ renderPoints points
+
+            SmoothQuadraticTo points ->
+                "T " ++ renderPoints points
+
+            Smooth points ->
+                "s " ++ renderPoints points
+
+            SmoothTo points ->
+                "S " ++ renderPoints points
+
+            ArcCmd arc ->
+                "a "
+                    ++ toString arc.radiusX.position
+                    ++ ","
+                    ++ toString arc.radiusY.position
+                    ++ " "
+                    ++ toString arc.xAxisRotation.position
+                    ++ " "
+                    ++ (if arc.large then
+                            "1"
+                        else
+                            "0"
+                       )
+                    ++ " "
+                    ++ (if arc.sweep then
+                            "1"
+                        else
+                            "0"
+                       )
+                    ++ " "
+                    ++ toString arc.x.position
+                    ++ ","
+                    ++ toString arc.y.position
+
+            ArcTo arc ->
+                "A "
+                    ++ toString arc.radiusX.position
+                    ++ ","
+                    ++ toString arc.radiusY.position
+                    ++ " "
+                    ++ toString arc.xAxisRotation.position
+                    ++ " "
+                    ++ (if arc.large then
+                            "1"
+                        else
+                            "0"
+                       )
+                    ++ " "
+                    ++ (if arc.sweep then
+                            "1"
+                        else
+                            "0"
+                       )
+                    ++ " "
+                    ++ toString arc.x.position
+                    ++ ","
+                    ++ toString arc.y.position
+
+            Close ->
+                "z"

@@ -7,6 +7,7 @@ import Html.Events exposing (..)
 import Animation exposing (deg, px)
 import Time exposing (Time, second)
 import String exposing (concat)
+import Color exposing (rgb)
 
 
 type alias Model =
@@ -29,18 +30,18 @@ update action model =
                         [ Animation.to
                             [ Animation.rotate (deg 20)
                             ]
-                        , Animation.to
-                            [ Animation.translateY (px -200)
-                            ]
-                        , Animation.to
-                            [ Animation.rotate (deg 380)
-                            ]
-                        , Animation.wait (1 * second)
-                        , Animation.to
-                            [ Animation.rotate (deg 0.0)
-                            , Animation.translateY (px 0.0)
-                            , Animation.rotate (deg 0.0)
-                            ]
+                          --, Animation.to
+                          --    [ Animation.translateY (px -200)
+                          --    ]
+                          --, Animation.to
+                          --    [ Animation.rotate (deg 380)
+                          --    ]
+                          --, Animation.wait (1 * second)
+                          --, Animation.to
+                          --    [ Animation.rotate (deg 0.0)
+                          --    , Animation.translateY (px 0.0)
+                          --    , Animation.rotate (deg 0.0)
+                          --    ]
                         ]
                         model.style
             in
@@ -50,13 +51,13 @@ update action model =
 
         Animate time ->
             let
-                ( style, msgs ) =
+                ( style, cmds ) =
                     Animation.tick time model.style
             in
                 ( { model
                     | style = style
                   }
-                , Cmd.none
+                , Cmd.batch cmds
                 )
 
 
@@ -77,14 +78,9 @@ view model =
             , ( "background-color", "#AAA" )
             , ( "cursor", "pointer" )
             ]
-
-        renderToString style =
-            String.concat <|
-                List.map (\( name, value ) -> name ++ ": " ++ value)
-                    style
     in
         div [ onClick Transform ]
-            [ div [ style <| boxStyle ++ (Animation.render model.style) ]
+            [ div (Animation.render model.style)
                 [ h1 [ style [ ( "padding", "25px" ) ] ]
                     [ text "Click to see a Stacked Transform" ]
                 ]
@@ -95,7 +91,7 @@ view model =
                     , ( "top", "50px" )
                     ]
                 ]
-                [ text <| renderToString <| (Animation.render model.style) ]
+                []
             ]
 
 
@@ -103,10 +99,13 @@ init : ( Model, Cmd Msg )
 init =
     ( { style =
             Animation.style
-                [ Animation.rotate (deg 0.0)
-                , Animation.translateY (px 0.0)
-                , Animation.translateX (px 0.0)
-                , Animation.rotate (deg 0.0)
+                [ --Animation.margin (px 300)
+                  --, Animation.backgroundColor (rgb 100 100 100)
+                  --, Animation.width (px 200)
+                  Animation.rotate (deg 0.0)
+                  --, Animation.translateY (px 0.0)
+                  --, Animation.translateX (px 0.0)
+                  --, Animation.rotate (deg 0.0)
                 ]
       }
     , Cmd.none
