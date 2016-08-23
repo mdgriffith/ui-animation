@@ -41,7 +41,15 @@ module Animation
         , backgroundColor
         , borderColor
         , borderWidth
+        , borderLeftWidth
+        , borderRightWidth
+        , borderTopWidth
+        , borderBottomWidth
         , borderRadius
+        , borderTopLeftRadius
+        , borderTopRightRadius
+        , borderBottomLeftRadius
+        , borderBottomRightRadius
         , shadow
         , insetShadow
         , scale
@@ -2141,6 +2149,26 @@ marginBottom len =
 borderWidth : Length -> Property
 borderWidth len =
     length "border-width" len
+
+
+borderLeftWidth : Length -> Property
+borderLeftWidth len =
+    length "border-left-width" len
+
+
+borderRightWidth : Length -> Property
+borderRightWidth len =
+    length "border-right-width" len
+
+
+borderTopWidth : Length -> Property
+borderTopWidth len =
+    length "border-top-width" len
+
+
+borderBottomWidth : Length -> Property
+borderBottomWidth len =
+    length "border-bottom-width" len
 
 
 borderRadius : Length -> Property
