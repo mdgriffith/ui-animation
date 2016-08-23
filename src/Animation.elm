@@ -42,14 +42,20 @@ module Animation
         , borderColor
         , borderWidth
         , borderRadius
+        , shadow
+        , insetShadow
         , scale
+        , scaleX
+        , scaleY
+        , scaleZ
         , rotate
         , rotateX
         , rotateY
         , rotateZ
         , translate
-        , translateY
         , translateX
+        , translateY
+        , translateZ
         , points
         , path
         , move
@@ -134,6 +140,7 @@ type alias Style =
 type Property
     = Display DisplayMode
     | ColorProperty String Motion Motion Motion Motion
+    | ShadowProperty String Bool ShadowMotion
     | FloatProperty String Motion
     | LengthProperty String Motion LengthUnit
     | LengthProperty2 String Motion Motion LengthUnit LengthUnit
@@ -183,6 +190,20 @@ default property =
         ColorProperty name _ _ _ _ ->
             Debug.log (name ++ " has no initial value.  Defaulting to transparent white.") <|
                 colorProp name (Color.rgba 255 255 255 0)
+
+        ShadowProperty name inset _ ->
+            ShadowProperty
+                name
+                inset
+                { offsetX = initMotion 0
+                , offsetY = initMotion 0
+                , size = initMotion 0
+                , blur = initMotion 0
+                , red = initMotion 0
+                , green = initMotion 0
+                , blue = initMotion 0
+                , alpha = initMotion 0
+                }
 
         FloatProperty name _ ->
             unitless name 0
@@ -250,6 +271,9 @@ defaultInterpolationByProperty prop =
             ColorProperty _ _ _ _ _ ->
                 linear (1 * second)
 
+            ShadowProperty _ _ _ ->
+                spring
+
             FloatProperty _ _ ->
                 spring
 
@@ -284,6 +308,45 @@ setInterpolation interp prop =
                 { m2 | interpolation = interp }
                 { m3 | interpolation = interp }
                 { m4 | interpolation = interp }
+
+        ShadowProperty name inset shadow ->
+            let
+                offsetX =
+                    shadow.offsetX
+
+                offsetY =
+                    shadow.offsetY
+
+                size =
+                    shadow.size
+
+                blur =
+                    shadow.blur
+
+                red =
+                    shadow.red
+
+                green =
+                    shadow.green
+
+                blue =
+                    shadow.blue
+
+                alpha =
+                    shadow.alpha
+            in
+                ShadowProperty
+                    name
+                    inset
+                    { offsetX = { offsetX | interpolation = interp }
+                    , offsetY = { offsetY | interpolation = interp }
+                    , size = { size | interpolation = interp }
+                    , blur = { blur | interpolation = interp }
+                    , red = { red | interpolation = interp }
+                    , green = { green | interpolation = interp }
+                    , blue = { blue | interpolation = interp }
+                    , alpha = { alpha | interpolation = interp }
+                    }
 
         FloatProperty name m1 ->
             FloatProperty name
@@ -772,6 +835,19 @@ isDone property =
             ColorProperty _ m1 m2 m3 m4 ->
                 List.all motionDone [ m1, m2, m3, m4 ]
 
+            ShadowProperty _ _ shadow ->
+                List.all
+                    motionDone
+                    [ shadow.offsetX
+                    , shadow.offsetY
+                    , shadow.size
+                    , shadow.blur
+                    , shadow.red
+                    , shadow.green
+                    , shadow.blue
+                    , shadow.alpha
+                    ]
+
             FloatProperty _ m1 ->
                 motionDone m1
 
@@ -923,6 +999,25 @@ setTarget current newTarget =
                             (setMotionTarget m2 t2)
                             (setMotionTarget m3 t3)
                             (setMotionTarget m4 t4)
+
+                    _ ->
+                        current
+
+            ShadowProperty name inset shadow ->
+                case newTarget of
+                    ShadowProperty _ _ targetShadow ->
+                        ShadowProperty
+                            name
+                            inset
+                            { offsetX = setMotionTarget shadow.offsetX targetShadow.offsetX
+                            , offsetY = setMotionTarget shadow.offsetY targetShadow.offsetY
+                            , size = setMotionTarget shadow.size targetShadow.size
+                            , blur = setMotionTarget shadow.blur targetShadow.blur
+                            , red = setMotionTarget shadow.red targetShadow.red
+                            , green = setMotionTarget shadow.green targetShadow.green
+                            , blue = setMotionTarget shadow.blue targetShadow.blue
+                            , alpha = setMotionTarget shadow.alpha targetShadow.alpha
+                            }
 
                     _ ->
                         current
@@ -1424,6 +1519,20 @@ step dt props =
                         (stepInterpolation dt green)
                         (stepInterpolation dt blue)
                         (stepInterpolation dt alpha)
+
+                ShadowProperty name inset shadow ->
+                    ShadowProperty
+                        name
+                        inset
+                        { offsetX = stepInterpolation dt shadow.offsetX
+                        , offsetY = stepInterpolation dt shadow.offsetY
+                        , size = stepInterpolation dt shadow.size
+                        , blur = stepInterpolation dt shadow.blur
+                        , red = stepInterpolation dt shadow.red
+                        , green = stepInterpolation dt shadow.green
+                        , blue = stepInterpolation dt shadow.blue
+                        , alpha = stepInterpolation dt shadow.alpha
+                        }
 
                 Points points ->
                     Points <|
@@ -2188,6 +2297,73 @@ perspective x =
     unitless "perspective" x
 
 
+type alias Shadow =
+    { offsetX : Float
+    , offsetY : Float
+    , size : Float
+    , blur : Float
+    , color : Color
+    }
+
+
+type alias ShadowMotion =
+    { offsetX : Motion
+    , offsetY : Motion
+    , size : Motion
+    , blur : Motion
+    , red : Motion
+    , green : Motion
+    , blue : Motion
+    , alpha : Motion
+    }
+
+
+
+-- Shadows
+--/* offset-x | offset-y | blur-radius | spread-radius | color */
+--box-shadow: 2px 2px 2px 1px rgba(0, 0, 0, 0.2);
+
+
+shadow : Shadow -> Property
+shadow shade =
+    let
+        { red, green, blue, alpha } =
+            Color.toRgb shade.color
+    in
+        ShadowProperty
+            "box-shadow"
+            False
+            { offsetX = initMotion shade.offsetX
+            , offsetY = initMotion shade.offsetY
+            , size = initMotion shade.size
+            , blur = initMotion shade.blur
+            , red = initMotion <| toFloat red
+            , green = initMotion <| toFloat green
+            , blue = initMotion <| toFloat blue
+            , alpha = initMotion alpha
+            }
+
+
+insetShadow : Shadow -> Property
+insetShadow shade =
+    let
+        { red, green, blue, alpha } =
+            Color.toRgb shade.color
+    in
+        ShadowProperty
+            "box-shadow"
+            True
+            { offsetX = initMotion shade.offsetX
+            , offsetY = initMotion shade.offsetY
+            , size = initMotion shade.size
+            , blur = initMotion shade.blur
+            , red = initMotion <| toFloat red
+            , green = initMotion <| toFloat green
+            , blue = initMotion <| toFloat blue
+            , alpha = initMotion alpha
+            }
+
+
 
 -- SVG properties
 
@@ -2636,6 +2812,9 @@ propertyName prop =
         ColorProperty name _ _ _ _ ->
             name
 
+        ShadowProperty name _ _ ->
+            name
+
         FloatProperty name _ ->
             name
 
@@ -2698,6 +2877,34 @@ propertyValue prop delim =
                 ++ toString (round b.position)
                 ++ ","
                 ++ toString a.position
+                ++ ")"
+
+        ShadowProperty _ inset shadow ->
+            (if inset then
+                "inset "
+             else
+                ""
+            )
+                ++ toString shadow.offsetX.position
+                ++ "px"
+                ++ " "
+                ++ toString shadow.offsetY.position
+                ++ "px"
+                ++ " "
+                ++ toString shadow.blur.position
+                ++ "px"
+                ++ " "
+                ++ toString shadow.size.position
+                ++ "px"
+                ++ " "
+                ++ "rgba("
+                ++ toString (round shadow.red.position)
+                ++ ", "
+                ++ toString (round shadow.green.position)
+                ++ ", "
+                ++ toString (round shadow.blue.position)
+                ++ ", "
+                ++ toString shadow.alpha.position
                 ++ ")"
 
         FloatProperty _ x ->
