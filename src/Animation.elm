@@ -37,7 +37,6 @@ module Animation
         , marginTop
         , marginBottom
         , color
-        , fill
         , backgroundColor
         , borderColor
         , borderWidth
@@ -52,6 +51,8 @@ module Animation
         , borderBottomRightRadius
         , shadow
         , insetShadow
+        , fill
+        , stroke
         , scale
         , scaleX
         , scaleY
@@ -277,7 +278,8 @@ defaultInterpolationByProperty prop =
                 spring
 
             ColorProperty _ _ _ _ _ ->
-                linear (1 * second)
+                --linear (1 * second)
+                spring
 
             ShadowProperty _ _ _ ->
                 spring
@@ -2763,18 +2765,19 @@ render (State model) =
 
         styleAttr =
             if List.length transforms == 0 then
-                Html.Attributes.style renderedStyle
+                Html.Attributes.style <| List.concatMap prefix renderedStyle
             else
                 Html.Attributes.style <|
-                    ( "transform"
-                    , String.concat <|
-                        List.map
-                            (\prop ->
-                                propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
-                            )
-                            transforms
-                    )
-                        :: renderedStyle
+                    List.concatMap prefix <|
+                        ( "transform"
+                        , String.concat <|
+                            List.map
+                                (\prop ->
+                                    propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
+                                )
+                                transforms
+                        )
+                            :: renderedStyle
 
         otherAttrs =
             List.filterMap renderAttrs attrProps
@@ -2814,6 +2817,44 @@ isTransformation prop =
         , "skewY"
         , "perspective"
         ]
+
+
+iePrefix : String
+iePrefix =
+    "-ms-"
+
+
+webkitPrefix : String
+webkitPrefix =
+    "-webkit-"
+
+
+{-| Add a prefix to a name/value pair, if needed.
+-}
+prefix : ( String, String ) -> List ( String, String )
+prefix stylePair =
+    let
+        propName =
+            fst stylePair
+
+        propValue =
+            snd stylePair
+    in
+        case propName of
+            "transform" ->
+                [ stylePair
+                , ( iePrefix ++ propName, propValue )
+                , ( webkitPrefix ++ propName, propValue )
+                ]
+
+            "transform-origin" ->
+                [ stylePair
+                , ( iePrefix ++ propName, propValue )
+                , ( webkitPrefix ++ propName, propValue )
+                ]
+
+            _ ->
+                [ stylePair ]
 
 
 {-| This property can only be represented as an html attribute
