@@ -265,9 +265,11 @@ defaultInterpolationByProperty prop =
                 , damping = 26
                 }
 
+        -- progress is set to 1 because it is changed to 0 when the animation actually starts
+        -- This is analagous to the spring starting at rest.
         linear duration =
             Easing
-                { progress = 0
+                { progress = 1
                 , start = 0
                 , duration = duration
                 , ease = identity
@@ -994,7 +996,10 @@ setTarget current newTarget =
                         | target = targetMotion.position
                         , interpolation =
                             Easing
-                                { ease | start = motion.position }
+                                { ease
+                                    | start = motion.position
+                                    , progress = 0
+                                }
                     }
     in
         case current of
@@ -1719,10 +1724,11 @@ stepInterpolation dtms motion =
                     ease newProgress
 
                 distance =
-                    motion.target - start
+                    motion.target
+                        - start
 
                 newPos =
-                    eased * distance
+                    (eased * distance) + start
 
                 newVelocity =
                     if newProgress == 1 then
