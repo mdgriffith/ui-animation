@@ -68,8 +68,8 @@ The alternative is to just require unitless values and only render as px values.
 
 ## Color via rgba
 
-The _RGB_ channels need to be floats.  RGB channels are __required__ to be ints.
-
+The _RGB_ channels need to be floats to be animated as `Motion` records.  
+However, CSS __requires__ RGB channels to be ints.
 
 
 ## Things that can't be animated but might want to be set as a step within an animation
