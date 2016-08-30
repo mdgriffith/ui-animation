@@ -118,7 +118,7 @@ viewWidget anim =
             , ( "text-align", "center" )
             , ( "line-height", "40px" )
             ]
-                ++ Animation.render anim
+                ++ Animation.renderStyle anim
         ]
         []
 

@@ -56,20 +56,20 @@ update action model =
 view : Model -> Html Msg
 view model =
     div
-        ([ onClick ChangeColor
-         , style
-            [ ( "position", "relative" )
-            , ( "margin", "200px auto" )
-            , ( "width", "250px" )
-            , ( "height", "250px" )
-            , ( "text-align", "center" )
-            , ( "line-height", "250px" )
-            , ( "color", "white" )
-            , ( "cursor", "pointer" )
-            ]
-         ]
-            ++ Animation.render model.style
-        )
+        [ onClick ChangeColor
+        , style
+            ([ ( "position", "relative" )
+             , ( "margin", "200px auto" )
+             , ( "width", "250px" )
+             , ( "height", "250px" )
+             , ( "text-align", "center" )
+             , ( "line-height", "250px" )
+             , ( "color", "white" )
+             , ( "cursor", "pointer" )
+             ]
+                ++ Animation.renderStyle model.style
+            )
+        ]
         [ text "Click to Change Color" ]
 
 
