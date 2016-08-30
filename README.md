@@ -71,8 +71,7 @@ __Render our animation__ at the necessary element in our view.  Note that not al
 ```
 
 
-
-And finally __specify our animation__ in our update statement.
+__Specify our animation__ in our update statement.
 
 ```elm
     case msgs of
@@ -91,9 +90,9 @@ And finally __specify our animation__ in our update statement.
             )
 ```
 
-Here's geerally how we compose animations.
+Here's generally how we compose animations.
 
- * Choose `Animation.queue` or `Animation.interrupt`, both of which take a list of steps and then your animation model.
+ * Choose `Animation.queue` or `Animation.interrupt`, both of which take a list of steps and your animation model.
  * Steps can be
     * `Animation.to` - Animate to a target style
     * `Animation.set` - Set a animation to a style immediately.
