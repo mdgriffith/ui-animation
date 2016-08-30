@@ -149,14 +149,12 @@ type alias Style =
 -}
 type Property
     = Display DisplayMode
-    | CustomProperty String Motion String
     | ColorProperty String Motion Motion Motion Motion
     | ShadowProperty String Bool ShadowMotion
-    | FloatProperty String Motion
-    | LengthProperty String Motion LengthUnit
-    | LengthProperty2 String Motion Motion LengthUnit LengthUnit
-    | LengthProperty3 String Motion Motion Motion LengthUnit LengthUnit LengthUnit
-    | AngleProperty String Motion AngleUnit
+    | Property String Motion
+    | Property2 String Motion Motion
+    | Property3 String Motion Motion Motion
+    | AngleProperty String Motion
     | Points (List ( Motion, Motion ))
     | Path (List PathCommand)
 
@@ -166,6 +164,7 @@ type alias Motion =
     , velocity : Float
     , target : Float
     , interpolation : Interpolation
+    , unit : String
     }
 
 
@@ -198,44 +197,38 @@ default property =
         Display mode ->
             Display Block
 
-        CustomProperty name value suffix ->
-            CustomProperty name (initMotion 0) suffix
-
         ColorProperty name _ _ _ _ ->
             Debug.log (name ++ " has no initial value.  Defaulting to transparent white.") <|
                 colorProp name (Color.rgba 255 255 255 0)
 
-        ShadowProperty name inset _ ->
+        ShadowProperty name inset shade ->
             ShadowProperty
                 name
                 inset
-                { offsetX = initMotion 0
-                , offsetY = initMotion 0
-                , size = initMotion 0
-                , blur = initMotion 0
-                , red = initMotion 0
-                , green = initMotion 0
-                , blue = initMotion 0
-                , alpha = initMotion 0
+                { offsetX = initMotion 0 (shade.offsetX.unit)
+                , offsetY = initMotion 0 (shade.offsetY.unit)
+                , size = initMotion 0 (shade.size.unit)
+                , blur = initMotion 0 (shade.blur.unit)
+                , red = initMotion 0 (shade.red.unit)
+                , green = initMotion 0 (shade.green.unit)
+                , blue = initMotion 0 (shade.blue.unit)
+                , alpha = initMotion 0 (shade.alpha.unit)
                 }
 
-        FloatProperty name _ ->
-            unitless name 0
+        Property name x ->
+            length name 0 x.unit
 
-        LengthProperty name _ unit ->
-            length name ( 0, unit )
+        Property2 name x y ->
+            length2 name ( 0, x.unit ) ( 0, y.unit )
 
-        LengthProperty2 name _ _ unit1 unit2 ->
-            length2 name ( 0, unit1 ) ( 0, unit2 )
+        Property3 name x y z ->
+            length3 name ( 0, x.unit ) ( 0, y.unit ) ( 0, z.unit )
 
-        LengthProperty3 name _ _ _ unit1 unit2 unit3 ->
-            length3 name ( 0, unit1 ) ( 0, unit2 ) ( 0, unit3 )
-
-        AngleProperty name _ unit ->
-            angleProp name ( 0, unit )
+        AngleProperty name x ->
+            AngleProperty name (initMotion 0 "deg")
 
         Points pnts ->
-            Points <| List.map (\_ -> ( initMotion 0, initMotion 0 )) pnts
+            Points <| List.map (\_ -> ( initMotion 0 "", initMotion 0 "" )) pnts
 
         Path cmds ->
             Path []
@@ -276,28 +269,22 @@ defaultInterpolationByProperty prop =
             Display _ ->
                 spring
 
-            CustomProperty _ _ _ ->
-                spring
-
             ColorProperty _ _ _ _ _ ->
                 linear (0.4 * second)
 
             ShadowProperty _ _ _ ->
                 spring
 
-            FloatProperty _ _ ->
+            Property _ _ ->
                 spring
 
-            LengthProperty _ _ _ ->
+            Property2 _ _ _ ->
                 spring
 
-            LengthProperty2 _ _ _ _ _ ->
+            Property3 _ _ _ _ ->
                 spring
 
-            LengthProperty3 _ _ _ _ _ _ _ ->
-                spring
-
-            AngleProperty _ _ _ ->
+            AngleProperty _ _ ->
                 linear (2 * second)
 
             Points _ ->
@@ -312,9 +299,6 @@ setInterpolation interp prop =
     case prop of
         Display mode ->
             Display mode
-
-        CustomProperty name motion suffix ->
-            CustomProperty name { motion | interpolation = interp } suffix
 
         ColorProperty name m1 m2 m3 m4 ->
             ColorProperty name
@@ -362,35 +346,24 @@ setInterpolation interp prop =
                     , alpha = { alpha | interpolation = interp }
                     }
 
-        FloatProperty name m1 ->
-            FloatProperty name
+        Property name m1 ->
+            Property name
                 { m1 | interpolation = interp }
 
-        LengthProperty name m1 unit ->
-            LengthProperty name
-                { m1 | interpolation = interp }
-                unit
-
-        LengthProperty2 name m1 m2 unit1 unit2 ->
-            LengthProperty2 name
+        Property2 name m1 m2 ->
+            Property2 name
                 { m1 | interpolation = interp }
                 { m2 | interpolation = interp }
-                unit1
-                unit2
 
-        LengthProperty3 name m1 m2 m3 unit1 unit2 unit3 ->
-            LengthProperty3 name
+        Property3 name m1 m2 m3 ->
+            Property3 name
                 { m1 | interpolation = interp }
                 { m2 | interpolation = interp }
                 { m3 | interpolation = interp }
-                unit1
-                unit2
-                unit3
 
-        AngleProperty name m1 unit ->
+        AngleProperty name m1 ->
             AngleProperty name
                 { m1 | interpolation = interp }
-                unit
 
         Points ms ->
             Points <|
@@ -718,10 +691,6 @@ debug (State model) =
                 Display _ ->
                     []
 
-                CustomProperty name value suffix ->
-                    [ ( name ++ "-" ++ suffix, value, time )
-                    ]
-
                 ColorProperty name r g b a ->
                     [ ( name ++ "-red", r, time )
                     , ( name ++ "-green", g, time )
@@ -747,24 +716,21 @@ debug (State model) =
                         , ( name ++ "-alpha", shadow.alpha, time )
                         ]
 
-                FloatProperty name m1 ->
+                Property name m1 ->
                     [ ( name, m1, time ) ]
 
-                LengthProperty name m1 _ ->
-                    [ ( name, m1, time ) ]
-
-                LengthProperty2 name m1 m2 _ _ ->
+                Property2 name m1 m2 ->
                     [ ( name ++ "-x", m1, time )
                     , ( name ++ "-y", m2, time )
                     ]
 
-                LengthProperty3 name m1 m2 m3 _ _ _ ->
+                Property3 name m1 m2 m3 ->
                     [ ( name ++ "-x", m1, time )
                     , ( name ++ "-y", m2, time )
                     , ( name ++ "-z", m2, time )
                     ]
 
-                AngleProperty name m1 _ ->
+                AngleProperty name m1 ->
                     [ ( name, m1, time ) ]
 
                 Points ms ->
@@ -804,7 +770,7 @@ tick now (State model) =
                 |> List.partition
                     (\( wait, steps ) -> wait <= 0)
 
-        -- if there are more than one matching interruptions,
+        -- if there is more than one matching interruptions,
         -- we only take the first, which is the one that was most recently assigned.
         queue =
             case List.head readyInterruption of
@@ -928,9 +894,6 @@ isDone property =
             Display _ ->
                 True
 
-            CustomProperty _ motion _ ->
-                motionDone motion
-
             ColorProperty _ m1 m2 m3 m4 ->
                 List.all motionDone [ m1, m2, m3, m4 ]
 
@@ -947,19 +910,16 @@ isDone property =
                     , shadow.alpha
                     ]
 
-            FloatProperty _ m1 ->
+            Property _ m1 ->
                 motionDone m1
 
-            LengthProperty _ m1 _ ->
-                motionDone m1
-
-            LengthProperty2 _ m1 m2 _ _ ->
+            Property2 _ m1 m2 ->
                 motionDone m1 && motionDone m2
 
-            LengthProperty3 _ m1 m2 m3 _ _ _ ->
+            Property3 _ m1 m2 m3 ->
                 List.all motionDone [ m1, m2, m3 ]
 
-            AngleProperty _ m1 _ ->
+            AngleProperty _ m1 ->
                 motionDone m1
 
             Points ms ->
@@ -1093,14 +1053,6 @@ setTarget current newTarget =
             Display mode ->
                 Display mode
 
-            CustomProperty name motion suffix ->
-                case newTarget of
-                    CustomProperty _ target _ ->
-                        CustomProperty name (setMotionTarget motion target) suffix
-
-                    _ ->
-                        current
-
             ColorProperty name m1 m2 m3 m4 ->
                 case newTarget of
                     ColorProperty _ t1 t2 t3 t4 ->
@@ -1132,57 +1084,41 @@ setTarget current newTarget =
                     _ ->
                         current
 
-            FloatProperty name m1 ->
+            Property name m1 ->
                 case newTarget of
-                    FloatProperty _ t1 ->
-                        FloatProperty name
+                    Property _ t1 ->
+                        Property name
                             (setMotionTarget m1 t1)
 
                     _ ->
                         current
 
-            LengthProperty name m1 unit ->
+            Property2 name m1 m2 ->
                 case newTarget of
-                    LengthProperty _ t1 _ ->
-                        LengthProperty name
-                            (setMotionTarget m1 t1)
-                            unit
-
-                    _ ->
-                        current
-
-            LengthProperty2 name m1 m2 unit1 unit2 ->
-                case newTarget of
-                    LengthProperty2 _ t1 t2 _ _ ->
-                        LengthProperty2 name
+                    Property2 _ t1 t2 ->
+                        Property2 name
                             (setMotionTarget m1 t1)
                             (setMotionTarget m2 t2)
-                            unit1
-                            unit2
 
                     _ ->
                         current
 
-            LengthProperty3 name m1 m2 m3 unit1 unit2 unit3 ->
+            Property3 name m1 m2 m3 ->
                 case newTarget of
-                    LengthProperty3 _ t1 t2 t3 _ _ _ ->
-                        LengthProperty3 name
+                    Property3 _ t1 t2 t3 ->
+                        Property3 name
                             (setMotionTarget m1 t1)
                             (setMotionTarget m2 t2)
                             (setMotionTarget m3 t3)
-                            unit1
-                            unit2
-                            unit3
 
                     _ ->
                         current
 
-            AngleProperty name m1 unit ->
+            AngleProperty name m1 ->
                 case newTarget of
-                    AngleProperty _ t1 _ ->
+                    AngleProperty _ t1 ->
                         AngleProperty name
                             (setMotionTarget m1 t1)
-                            unit
 
                     _ ->
                         current
@@ -1572,16 +1508,21 @@ step dt props =
                 Display mode ->
                     Display mode
 
-                CustomProperty name motion suffix ->
-                    CustomProperty name (stepInterpolation dt motion) suffix
+                Property name motion ->
+                    Property name (stepInterpolation dt motion)
 
-                FloatProperty name motion ->
-                    FloatProperty name (stepInterpolation dt motion)
+                Property2 name motion1 motion2 ->
+                    Property2 name
+                        (stepInterpolation dt motion1)
+                        (stepInterpolation dt motion2)
 
-                LengthProperty name motion unit ->
-                    LengthProperty name (stepInterpolation dt motion) unit
+                Property3 name motion1 motion2 motion3 ->
+                    Property3 name
+                        (stepInterpolation dt motion1)
+                        (stepInterpolation dt motion2)
+                        (stepInterpolation dt motion3)
 
-                AngleProperty name motion unit ->
+                AngleProperty name motion ->
                     let
                         stepped =
                             stepInterpolation dt motion
@@ -1608,23 +1549,7 @@ step dt props =
                             else
                                 stepped
                     in
-                        AngleProperty name wrapped unit
-
-                LengthProperty2 name motion1 motion2 unit1 unit2 ->
-                    LengthProperty2 name
-                        (stepInterpolation dt motion1)
-                        (stepInterpolation dt motion2)
-                        unit1
-                        unit2
-
-                LengthProperty3 name motion1 motion2 motion3 unit1 unit2 unit3 ->
-                    LengthProperty3 name
-                        (stepInterpolation dt motion1)
-                        (stepInterpolation dt motion2)
-                        (stepInterpolation dt motion3)
-                        unit1
-                        unit2
-                        unit3
+                        AngleProperty name wrapped
 
                 ColorProperty name red green blue alpha ->
                     ColorProperty name
@@ -1951,11 +1876,12 @@ type alias Angle =
     ( Float, AngleUnit )
 
 
-initMotion : Float -> Motion
-initMotion position =
+initMotion : Float -> String -> Motion
+initMotion position unit =
     { position = position
     , velocity = 0
     , target = position
+    , unit = unit
     , interpolation =
         Spring
             { stiffness = 170
@@ -2059,39 +1985,24 @@ pc x =
     ( x, Pc )
 
 
-unitless : String -> Float -> Property
-unitless name x =
-    LengthProperty name (initMotion x) NoUnit
+length : String -> Float -> String -> Property
+length name x unit =
+    Property name (initMotion x unit)
 
 
-length : String -> Length -> Property
-length name ( x, len ) =
-    LengthProperty name (initMotion x) len
-
-
-length2 : String -> Length -> Length -> Property
+length2 : String -> ( Float, String ) -> ( Float, String ) -> Property
 length2 name ( x, len ) ( x2, len2 ) =
-    LengthProperty2 name
-        (initMotion x)
-        (initMotion x2)
-        len
-        len2
+    Property2 name
+        (initMotion x len)
+        (initMotion x2 len2)
 
 
-length3 : String -> Length -> Length -> Length -> Property
+length3 : String -> ( Float, String ) -> ( Float, String ) -> ( Float, String ) -> Property
 length3 name ( x, len ) ( x2, len2 ) ( x3, len3 ) =
-    LengthProperty3 name
-        (initMotion x)
-        (initMotion x2)
-        (initMotion x3)
-        len
-        len2
-        len3
-
-
-angleProp : String -> Angle -> Property
-angleProp name ( x, ang ) =
-    AngleProperty name (initMotion x) ang
+    Property3 name
+        (initMotion x len)
+        (initMotion x2 len2)
+        (initMotion x3 len3)
 
 
 {-| We convert the rgb channels to a float because that allows us to use the motion type without parametricity.
@@ -2105,20 +2016,20 @@ colorProp name color =
             Color.toRgb color
     in
         ColorProperty name
-            (initMotion <| toFloat red)
-            (initMotion <| toFloat green)
-            (initMotion <| toFloat blue)
-            (initMotion alpha)
+            (initMotion (toFloat red) "")
+            (initMotion (toFloat green) "")
+            (initMotion (toFloat blue) "")
+            (initMotion alpha "")
 
 
 custom : String -> Float -> String -> Property
-custom name value suffix =
-    CustomProperty name (initMotion value) suffix
+custom name value unit =
+    Property name (initMotion value unit)
 
 
 opacity : Float -> Property
 opacity x =
-    unitless "opacity" x
+    custom "opacity" x ""
 
 
 display : DisplayMode -> Property
@@ -2162,168 +2073,168 @@ listItem =
 
 
 height : Length -> Property
-height len =
-    length "height" len
+height ( x, len ) =
+    length "height" x (lengthUnitName len)
 
 
 width : Length -> Property
-width len =
-    length "width" len
+width ( x, len ) =
+    length "width" x (lengthUnitName len)
 
 
 left : Length -> Property
-left len =
-    length "left" len
+left ( x, len ) =
+    length "left" x (lengthUnitName len)
 
 
 top : Length -> Property
-top len =
-    length "top" len
+top ( x, len ) =
+    length "top" x (lengthUnitName len)
 
 
 right : Length -> Property
-right len =
-    length "right" len
+right ( x, len ) =
+    length "right" x (lengthUnitName len)
 
 
 bottom : Length -> Property
-bottom len =
-    length "bottom" len
+bottom ( x, len ) =
+    length "bottom" x (lengthUnitName len)
 
 
 maxHeight : Length -> Property
-maxHeight len =
-    length "max-height" len
+maxHeight ( x, len ) =
+    length "max-height" x (lengthUnitName len)
 
 
 maxWidth : Length -> Property
-maxWidth len =
-    length "max-width" len
+maxWidth ( x, len ) =
+    length "max-width" x (lengthUnitName len)
 
 
 minHeight : Length -> Property
-minHeight len =
-    length "min-height" len
+minHeight ( x, len ) =
+    length "min-height" x (lengthUnitName len)
 
 
 minWidth : Length -> Property
-minWidth len =
-    length "min-width" len
+minWidth ( x, len ) =
+    length "min-width" x (lengthUnitName len)
 
 
 padding : Length -> Property
-padding len =
-    length "padding" len
+padding ( x, len ) =
+    length "padding" x (lengthUnitName len)
 
 
 paddingLeft : Length -> Property
-paddingLeft len =
-    length "padding-left" len
+paddingLeft ( x, len ) =
+    length "padding-left" x (lengthUnitName len)
 
 
 paddingRight : Length -> Property
-paddingRight len =
-    length "padding-right" len
+paddingRight ( x, len ) =
+    length "padding-right" x (lengthUnitName len)
 
 
 paddingTop : Length -> Property
-paddingTop len =
-    length "padding-top" len
+paddingTop ( x, len ) =
+    length "padding-top" x (lengthUnitName len)
 
 
 paddingBottom : Length -> Property
-paddingBottom len =
-    length "padding-bottom" len
+paddingBottom ( x, len ) =
+    length "padding-bottom" x (lengthUnitName len)
 
 
 margin : Length -> Property
-margin len =
-    length "margin" len
+margin ( x, len ) =
+    length "margin" x (lengthUnitName len)
 
 
 marginLeft : Length -> Property
-marginLeft len =
-    length "margin-left" len
+marginLeft ( x, len ) =
+    length "margin-left" x (lengthUnitName len)
 
 
 marginRight : Length -> Property
-marginRight len =
-    length "margin-right" len
+marginRight ( x, len ) =
+    length "margin-right" x (lengthUnitName len)
 
 
 marginTop : Length -> Property
-marginTop len =
-    length "margin-top" len
+marginTop ( x, len ) =
+    length "margin-top" x (lengthUnitName len)
 
 
 marginBottom : Length -> Property
-marginBottom len =
-    length "margin-bottom" len
+marginBottom ( x, len ) =
+    length "margin-bottom" x (lengthUnitName len)
 
 
 borderWidth : Length -> Property
-borderWidth len =
-    length "border-width" len
+borderWidth ( x, len ) =
+    length "border-width" x (lengthUnitName len)
 
 
 borderLeftWidth : Length -> Property
-borderLeftWidth len =
-    length "border-left-width" len
+borderLeftWidth ( x, len ) =
+    length "border-left-width" x (lengthUnitName len)
 
 
 borderRightWidth : Length -> Property
-borderRightWidth len =
-    length "border-right-width" len
+borderRightWidth ( x, len ) =
+    length "border-right-width" x (lengthUnitName len)
 
 
 borderTopWidth : Length -> Property
-borderTopWidth len =
-    length "border-top-width" len
+borderTopWidth ( x, len ) =
+    length "border-top-width" x (lengthUnitName len)
 
 
 borderBottomWidth : Length -> Property
-borderBottomWidth len =
-    length "border-bottom-width" len
+borderBottomWidth ( x, len ) =
+    length "border-bottom-width" x (lengthUnitName len)
 
 
 borderRadius : Length -> Property
-borderRadius len =
-    length "border-radius" len
+borderRadius ( x, len ) =
+    length "border-radius" x (lengthUnitName len)
 
 
 borderTopLeftRadius : Length -> Property
-borderTopLeftRadius len =
-    length "border-top-left-radius" len
+borderTopLeftRadius ( x, len ) =
+    length "border-top-left-radius" x (lengthUnitName len)
 
 
 borderTopRightRadius : Length -> Property
-borderTopRightRadius len =
-    length "border-top-right-radius" len
+borderTopRightRadius ( x, len ) =
+    length "border-top-right-radius" x (lengthUnitName len)
 
 
 borderBottomLeftRadius : Length -> Property
-borderBottomLeftRadius len =
-    length "border-bottom-left-radius" len
+borderBottomLeftRadius ( x, len ) =
+    length "border-bottom-left-radius" x (lengthUnitName len)
 
 
 borderBottomRightRadius : Length -> Property
-borderBottomRightRadius len =
-    length "border-bottom-right-radius" len
+borderBottomRightRadius ( x, len ) =
+    length "border-bottom-right-radius" x (lengthUnitName len)
 
 
 letterSpacing : Length -> Property
-letterSpacing len =
-    length "letter-spacing" len
+letterSpacing ( x, len ) =
+    length "letter-spacing" x (lengthUnitName len)
 
 
 lineHeight : Length -> Property
-lineHeight len =
-    length "line-height" len
+lineHeight ( x, len ) =
+    length "line-height" x (lengthUnitName len)
 
 
 backgroundPosition : Length -> Length -> Property
-backgroundPosition x y =
-    length2 "background-position" x y
+backgroundPosition ( x, len1 ) ( y, len2 ) =
+    length2 "background-position" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 )
 
 
 color : Color -> Property
@@ -2342,38 +2253,38 @@ borderColor c =
 
 
 transformOrigin : Length -> Length -> Length -> Property
-transformOrigin x y z =
-    length3 "transform-origin" x y z
+transformOrigin ( x, len1 ) ( y, len2 ) ( z, len3 ) =
+    length3 "transform-origin" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 ) ( z, lengthUnitName len3 )
 
 
 translate : Length -> Length -> Property
-translate x y =
-    length2 "translate" x y
+translate ( x, len1 ) ( y, len2 ) =
+    length2 "translate" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 )
 
 
 translate3d : Length -> Length -> Length -> Property
-translate3d x y z =
-    length3 "translate3d" x y z
+translate3d ( x, len1 ) ( y, len2 ) ( z, len3 ) =
+    length3 "translate3d" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 ) ( z, lengthUnitName len3 )
 
 
 translateX : Length -> Property
-translateX len =
-    length "translateX" len
+translateX ( x, len ) =
+    length "translateX" x (lengthUnitName len)
 
 
 translateY : Length -> Property
-translateY len =
-    length "translateY" len
+translateY ( x, len ) =
+    length "translateY" x (lengthUnitName len)
 
 
 translateZ : Length -> Property
-translateZ len =
-    length "translateZ" len
+translateZ ( x, len ) =
+    length "translateZ" x (lengthUnitName len)
 
 
 scale : Float -> Property
 scale x =
-    unitless "scale" x
+    custom "scale" x ""
 
 
 
@@ -2384,22 +2295,26 @@ scale x =
 
 scaleX : Float -> Property
 scaleX x =
-    unitless "scaleX" x
+    custom "scaleX" x ""
 
 
 scaleY : Float -> Property
 scaleY x =
-    unitless "scaleY" x
+    custom "scaleY" x ""
 
 
 scaleZ : Float -> Property
 scaleZ x =
-    unitless "scaleZ" x
+    custom "scaleZ" x ""
+
+
+
+-- Internally, angles are always in degrees which is why we throw away the angleUnit here.  It was already checked.
 
 
 rotate : Angle -> Property
-rotate angle =
-    angleProp "rotate" angle
+rotate ( x, angle ) =
+    AngleProperty "rotate" (initMotion x "deg")
 
 
 
@@ -2407,18 +2322,18 @@ rotate angle =
 
 
 rotateX : Angle -> Property
-rotateX angle =
-    angleProp "rotateX" angle
+rotateX ( x, angle ) =
+    AngleProperty "rotateX" (initMotion x "deg")
 
 
 rotateY : Angle -> Property
-rotateY angle =
-    angleProp "rotateY" angle
+rotateY ( x, angle ) =
+    AngleProperty "rotateY" (initMotion x "deg")
 
 
 rotateZ : Angle -> Property
-rotateZ angle =
-    angleProp "rotateZ" angle
+rotateZ ( x, angle ) =
+    AngleProperty "rotateZ" (initMotion x "deg")
 
 
 
@@ -2426,18 +2341,18 @@ rotateZ angle =
 
 
 skewX : Angle -> Property
-skewX angle =
-    angleProp "skewX" angle
+skewX ( x, angle ) =
+    AngleProperty "skewX" (initMotion x "deg")
 
 
 skewY : Angle -> Property
-skewY angle =
-    angleProp "skewY" angle
+skewY ( x, angle ) =
+    AngleProperty "skewY" (initMotion x "deg")
 
 
 perspective : Float -> Property
 perspective x =
-    unitless "perspective" x
+    custom "perspective" x ""
 
 
 type alias Shadow =
@@ -2461,12 +2376,6 @@ type alias ShadowMotion =
     }
 
 
-
--- Shadows
---/* offset-x | offset-y | blur-radius | spread-radius | color */
---box-shadow: 2px 2px 2px 1px rgba(0, 0, 0, 0.2);
-
-
 shadow : Shadow -> Property
 shadow shade =
     let
@@ -2476,14 +2385,14 @@ shadow shade =
         ShadowProperty
             "box-shadow"
             False
-            { offsetX = initMotion shade.offsetX
-            , offsetY = initMotion shade.offsetY
-            , size = initMotion shade.size
-            , blur = initMotion shade.blur
-            , red = initMotion <| toFloat red
-            , green = initMotion <| toFloat green
-            , blue = initMotion <| toFloat blue
-            , alpha = initMotion alpha
+            { offsetX = initMotion shade.offsetX "px"
+            , offsetY = initMotion shade.offsetY "px"
+            , size = initMotion shade.size "px"
+            , blur = initMotion shade.blur "px"
+            , red = initMotion (toFloat red) "px"
+            , green = initMotion (toFloat green) "px"
+            , blue = initMotion (toFloat blue) "px"
+            , alpha = initMotion alpha "px"
             }
 
 
@@ -2496,14 +2405,14 @@ insetShadow shade =
         ShadowProperty
             "box-shadow"
             True
-            { offsetX = initMotion shade.offsetX
-            , offsetY = initMotion shade.offsetY
-            , size = initMotion shade.size
-            , blur = initMotion shade.blur
-            , red = initMotion <| toFloat red
-            , green = initMotion <| toFloat green
-            , blue = initMotion <| toFloat blue
-            , alpha = initMotion alpha
+            { offsetX = initMotion shade.offsetX "px"
+            , offsetY = initMotion shade.offsetY "px"
+            , size = initMotion shade.size "px"
+            , blur = initMotion shade.blur "px"
+            , red = initMotion (toFloat red) "px"
+            , green = initMotion (toFloat green) "px"
+            , blue = initMotion (toFloat blue) "px"
+            , alpha = initMotion alpha "px"
             }
 
 
@@ -2513,37 +2422,37 @@ insetShadow shade =
 
 x : Float -> Property
 x x =
-    unitless "x" x
+    custom "x" x ""
 
 
 y : Float -> Property
 y y =
-    unitless "y" y
+    custom "y" y ""
 
 
 cx : Float -> Property
 cx x =
-    unitless "cx" x
+    custom "cx" x ""
 
 
 cy : Float -> Property
 cy y =
-    unitless "cy" y
+    custom "cy" y ""
 
 
 radius : Float -> Property
 radius r =
-    unitless "r" r
+    custom "r" r ""
 
 
 radiusX : Float -> Property
 radiusX rx =
-    unitless "rx" rx
+    custom "rx" rx ""
 
 
 radiusY : Float -> Property
 radiusY ry =
-    unitless "ry" ry
+    custom "ry" ry ""
 
 
 path : List (PathCommand) -> Property
@@ -2553,42 +2462,42 @@ path commands =
 
 move : Float -> Float -> PathCommand
 move x y =
-    Move (initMotion x) (initMotion y)
+    Move (initMotion x "") (initMotion y "")
 
 
 moveTo : Float -> Float -> PathCommand
 moveTo x y =
-    MoveTo (initMotion x) (initMotion y)
+    MoveTo (initMotion x "") (initMotion y "")
 
 
 line : Float -> Float -> PathCommand
 line x y =
-    Line (initMotion x) (initMotion y)
+    Line (initMotion x "") (initMotion y "")
 
 
 lineTo : Float -> Float -> PathCommand
 lineTo x y =
-    LineTo (initMotion x) (initMotion y)
+    LineTo (initMotion x "") (initMotion y "")
 
 
 horizontal : Float -> PathCommand
 horizontal x =
-    Horizontal (initMotion x)
+    Horizontal (initMotion x "")
 
 
 horizontalTo : Float -> PathCommand
 horizontalTo x =
-    HorizontalTo (initMotion x)
+    HorizontalTo (initMotion x "")
 
 
 vertical : Float -> PathCommand
 vertical x =
-    Vertical (initMotion x)
+    Vertical (initMotion x "")
 
 
 verticalTo : Float -> PathCommand
 verticalTo x =
-    VerticalTo (initMotion x)
+    VerticalTo (initMotion x "")
 
 
 curve : List ( Float, Float ) -> PathCommand
@@ -2743,11 +2652,11 @@ type alias ArcMotion =
 
 initArcMotion : Arc -> Bool -> Bool -> ArcMotion
 initArcMotion arc large sweep =
-    { x = initMotion arc.x
-    , y = initMotion arc.y
-    , radiusX = initMotion arc.x
-    , radiusY = initMotion arc.y
-    , xAxisRotation = initMotion arc.xAxisRotation
+    { x = initMotion arc.x "px"
+    , y = initMotion arc.y "px"
+    , radiusX = initMotion arc.x "px"
+    , radiusY = initMotion arc.y "px"
+    , xAxisRotation = initMotion arc.xAxisRotation "deg"
     , sweep = sweep
     , large = large
     }
@@ -2755,7 +2664,7 @@ initArcMotion arc large sweep =
 
 pointsProp : List ( Float, Float ) -> List ( Motion, Motion )
 pointsProp pnts =
-    List.map (\( x, y ) -> ( initMotion x, initMotion y )) pnts
+    List.map (\( x, y ) -> ( initMotion x "", initMotion y "" )) pnts
 
 
 {-| Rendered as an attribute because it can't be represented as a style.
@@ -2853,10 +2762,9 @@ matchPoints points1 points2 =
 -------------------------
 
 
-{-| Combine "transform" based properties into a single css property.
+{-| Render style properties into the style attribute and render other attributes as needed for svg.
 
-Render style properties into the style attribute and render other attributes as needed for svg.
-
+Combine "transform" based properties into a single css property.
 -}
 render : State msg -> List (Html.Attribute msg)
 render (State model) =
@@ -3028,28 +2936,22 @@ propertyName prop =
         Display _ ->
             "display"
 
-        CustomProperty name _ _ ->
-            name
-
         ColorProperty name _ _ _ _ ->
             name
 
         ShadowProperty name _ _ ->
             name
 
-        FloatProperty name _ ->
+        Property name _ ->
             name
 
-        LengthProperty name _ _ ->
+        Property2 name _ _ ->
             name
 
-        LengthProperty2 name _ _ _ _ ->
+        Property3 name _ _ _ ->
             name
 
-        LengthProperty3 name _ _ _ _ _ _ ->
-            name
-
-        AngleProperty name _ _ ->
+        AngleProperty name _ ->
             name
 
         Points _ ->
@@ -3090,9 +2992,6 @@ propertyValue prop delim =
         Display mode ->
             displayModeName mode
 
-        CustomProperty _ value suffix ->
-            toString value ++ suffix
-
         ColorProperty _ r g b a ->
             "rgba("
                 ++ toString (round r.position)
@@ -3132,31 +3031,28 @@ propertyValue prop delim =
                 ++ toString shadow.alpha.position
                 ++ ")"
 
-        FloatProperty _ x ->
-            toString x.position
+        Property _ x ->
+            toString x.position ++ x.unit
 
-        LengthProperty _ x unit ->
-            toString x.position ++ lengthUnitName unit
-
-        LengthProperty2 _ x y unit1 unit2 ->
+        Property2 _ x y ->
             toString x.position
-                ++ lengthUnitName unit1
+                ++ x.unit
                 ++ delim
                 ++ toString y.position
-                ++ lengthUnitName unit2
+                ++ y.unit
 
-        LengthProperty3 _ x y z unit1 unit2 unit3 ->
+        Property3 _ x y z ->
             toString x.position
-                ++ lengthUnitName unit1
+                ++ x.unit
                 ++ delim
                 ++ toString y.position
-                ++ lengthUnitName unit2
+                ++ y.unit
                 ++ delim
                 ++ toString z.position
-                ++ lengthUnitName unit3
+                ++ z.unit
 
-        AngleProperty _ x unit ->
-            toString x.position ++ angleUnitName unit
+        AngleProperty _ x ->
+            toString x.position ++ x.unit
 
         Points coords ->
             String.join " " <|
