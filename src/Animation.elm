@@ -787,7 +787,7 @@ debug (State model) =
         List.concatMap getValueTuple model.style
 
 
-tick : Time -> State msg -> ( State msg, List (Cmd msg) )
+tick : Time -> State msg -> ( State msg, Cmd msg )
 tick now (State model) =
     let
         -- set current and dt time
@@ -825,7 +825,7 @@ tick now (State model) =
                 , steps = revisedQueue
                 , style = revisedStyle
             }
-        , List.map (\m -> Task.perform identity identity (Task.succeed m)) sentMessages
+        , Cmd.batch <| List.map (\m -> Task.perform identity identity (Task.succeed m)) sentMessages
         )
 
 

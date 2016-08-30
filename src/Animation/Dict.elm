@@ -18,17 +18,17 @@ subscription dict msg =
 {-|
 
 -}
-tick : Time -> Dict comparable (Animation.State msg) -> ( Dict comparable (Animation.State msg), List (Cmd msg) )
+tick : Time -> Dict comparable (Animation.State msg) -> ( Dict comparable (Animation.State msg), Cmd msg )
 tick time dict =
     Dict.foldl
-        (\id style ( dict2, msgs ) ->
+        (\id style ( dict2, cmd ) ->
             let
-                ( ticked, newMsgs ) =
+                ( ticked, newCmd ) =
                     Animation.tick time style
             in
-                ( Dict.insert id ticked dict2, msgs ++ newMsgs )
+                ( Dict.insert id ticked dict2, Cmd.batch [ cmd, newCmd ] )
         )
-        ( Dict.empty, [] )
+        ( Dict.empty, Cmd.none )
         dict
 
 

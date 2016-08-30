@@ -59,15 +59,14 @@ update action model =
 
         Animate time ->
             let
-                ( anim, cmds ) =
+                ( anim, cmd ) =
                     Animation.tick time model.style
             in
-                updates msgs
-                    ( { model
-                        | style = anim
-                      }
-                    , Cmd.batch cmds
-                    )
+                ( { model
+                    | style = anim
+                  }
+                , cmd
+                )
 
 
 view : Model -> Html Msg
@@ -98,7 +97,7 @@ view model =
                  , ( "color", "white" )
                  , ( "border", "2px solid rgb(58,40,69)" )
                  ]
-                    ++ (Animation.render model.style)
+                    ++ (Animation.renderStyle model.style)
                 )
             ]
             [ h1 [] [ text "Hidden Menu" ]

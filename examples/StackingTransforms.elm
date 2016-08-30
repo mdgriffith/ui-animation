@@ -51,13 +51,13 @@ update action model =
 
         Animate time ->
             let
-                ( style, cmds ) =
+                ( style, cmd ) =
                     Animation.tick time model.style
             in
                 ( { model
                     | style = style
                   }
-                , Cmd.batch cmds
+                , cmd
                 )
 
 
