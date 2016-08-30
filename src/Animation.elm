@@ -1,6 +1,7 @@
 module Animation
     exposing
         ( render
+        , renderStyle
         , interrupt
         , queue
         , wait
@@ -144,10 +145,11 @@ type alias Style =
     List Property
 
 
-{-| For each 'value' we track position, velocity, and target.
+{-| For each 'value' of a property, we track position, velocity, interpolation, and target.
 -}
 type Property
     = Display DisplayMode
+    | CustomProperty String Motion String
     | ColorProperty String Motion Motion Motion Motion
     | ShadowProperty String Bool ShadowMotion
     | FloatProperty String Motion
@@ -196,6 +198,9 @@ default property =
         Display mode ->
             Display Block
 
+        CustomProperty name value suffix ->
+            CustomProperty name (initMotion 0) suffix
+
         ColorProperty name _ _ _ _ ->
             Debug.log (name ++ " has no initial value.  Defaulting to transparent white.") <|
                 colorProp name (Color.rgba 255 255 255 0)
@@ -236,14 +241,6 @@ default property =
             Path []
 
 
-defaultInterpolation : Interpolation
-defaultInterpolation =
-    Spring
-        { stiffness = 170
-        , damping = 26
-        }
-
-
 setDefaultInterpolation : Property -> Property
 setDefaultInterpolation prop =
     let
@@ -279,9 +276,11 @@ defaultInterpolationByProperty prop =
             Display _ ->
                 spring
 
-            ColorProperty _ _ _ _ _ ->
-                --linear (1 * second)
+            CustomProperty _ _ _ ->
                 spring
+
+            ColorProperty _ _ _ _ _ ->
+                linear (0.4 * second)
 
             ShadowProperty _ _ _ ->
                 spring
@@ -313,6 +312,9 @@ setInterpolation interp prop =
     case prop of
         Display mode ->
             Display mode
+
+        CustomProperty name motion suffix ->
+            CustomProperty name { motion | interpolation = interp } suffix
 
         ColorProperty name m1 m2 m3 m4 ->
             ColorProperty name
@@ -705,6 +707,86 @@ refreshTiming now timing =
         }
 
 
+debug : State msg -> List ( String, Motion, Time )
+debug (State model) =
+    let
+        time =
+            model.timing.current
+
+        getValueTuple prop =
+            case prop of
+                Display _ ->
+                    []
+
+                CustomProperty name value suffix ->
+                    [ ( name ++ "-" ++ suffix, value, time )
+                    ]
+
+                ColorProperty name r g b a ->
+                    [ ( name ++ "-red", r, time )
+                    , ( name ++ "-green", g, time )
+                    , ( name ++ "-blue", b, time )
+                    , ( name ++ "-alpha", a, time )
+                    ]
+
+                ShadowProperty propName inset shadow ->
+                    let
+                        name =
+                            if inset then
+                                propName ++ "-inset"
+                            else
+                                propName
+                    in
+                        [ ( name ++ "-offsetX", shadow.offsetX, time )
+                        , ( name ++ "-offsetY", shadow.offsetY, time )
+                        , ( name ++ "-size", shadow.size, time )
+                        , ( name ++ "-blur", shadow.blur, time )
+                        , ( name ++ "-red", shadow.red, time )
+                        , ( name ++ "-green", shadow.green, time )
+                        , ( name ++ "-blue", shadow.blue, time )
+                        , ( name ++ "-alpha", shadow.alpha, time )
+                        ]
+
+                FloatProperty name m1 ->
+                    [ ( name, m1, time ) ]
+
+                LengthProperty name m1 _ ->
+                    [ ( name, m1, time ) ]
+
+                LengthProperty2 name m1 m2 _ _ ->
+                    [ ( name ++ "-x", m1, time )
+                    , ( name ++ "-y", m2, time )
+                    ]
+
+                LengthProperty3 name m1 m2 m3 _ _ _ ->
+                    [ ( name ++ "-x", m1, time )
+                    , ( name ++ "-y", m2, time )
+                    , ( name ++ "-z", m2, time )
+                    ]
+
+                AngleProperty name m1 _ ->
+                    [ ( name, m1, time ) ]
+
+                Points ms ->
+                    let
+                        name =
+                            "points"
+                    in
+                        List.concat <|
+                            List.indexedMap
+                                (\i ( x, y ) ->
+                                    [ ( toString i ++ name ++ "-x", x, time )
+                                    , ( toString i ++ name ++ "-y", y, time )
+                                    ]
+                                )
+                                ms
+
+                Path cmds ->
+                    []
+    in
+        List.concatMap getValueTuple model.style
+
+
 tick : Time -> State msg -> ( State msg, List (Cmd msg) )
 tick now (State model) =
     let
@@ -812,6 +894,8 @@ resolveQueue currentStyle steps dt =
                             dt
 
 
+{-|
+-}
 replaceProps : List Property -> List Property -> List Property
 replaceProps props replacements =
     let
@@ -843,6 +927,9 @@ isDone property =
         case property of
             Display _ ->
                 True
+
+            CustomProperty _ motion _ ->
+                motionDone motion
 
             ColorProperty _ m1 m2 m3 m4 ->
                 List.all motionDone [ m1, m2, m3, m4 ]
@@ -1005,6 +1092,14 @@ setTarget current newTarget =
         case current of
             Display mode ->
                 Display mode
+
+            CustomProperty name motion suffix ->
+                case newTarget of
+                    CustomProperty _ target _ ->
+                        CustomProperty name (setMotionTarget motion target) suffix
+
+                    _ ->
+                        current
 
             ColorProperty name m1 m2 m3 m4 ->
                 case newTarget of
@@ -1477,6 +1572,9 @@ step dt props =
                 Display mode ->
                     Display mode
 
+                CustomProperty name motion suffix ->
+                    CustomProperty name (stepInterpolation dt motion) suffix
+
                 FloatProperty name motion ->
                     FloatProperty name (stepInterpolation dt motion)
 
@@ -1858,7 +1956,11 @@ initMotion position =
     { position = position
     , velocity = 0
     , target = position
-    , interpolation = defaultInterpolation
+    , interpolation =
+        Spring
+            { stiffness = 170
+            , damping = 26
+            }
     }
 
 
@@ -1993,7 +2095,7 @@ angleProp name ( x, ang ) =
 
 
 {-| We convert the rgb channels to a float because that allows us to use the motion type without parametricity.
-When rendering we convert them back to ints because CSS does not recognize them otherwise.
+When rendering we convert them back to ints because CSS does not recognize rgb as floats.
 
 -}
 colorProp : String -> Color -> Property
@@ -2007,6 +2109,11 @@ colorProp name color =
             (initMotion <| toFloat green)
             (initMotion <| toFloat blue)
             (initMotion alpha)
+
+
+custom : String -> Float -> String -> Property
+custom name value suffix =
+    CustomProperty name (initMotion value) suffix
 
 
 opacity : Float -> Property
@@ -2748,6 +2855,8 @@ matchPoints points1 points2 =
 
 {-| Combine "transform" based properties into a single css property.
 
+Render style properties into the style attribute and render other attributes as needed for svg.
+
 -}
 render : State msg -> List (Html.Attribute msg)
 render (State model) =
@@ -2789,6 +2898,41 @@ render (State model) =
             List.filterMap renderAttrs attrProps
     in
         styleAttr :: otherAttrs
+
+
+renderStyle : State msg -> List ( String, String )
+renderStyle (State model) =
+    let
+        ( attrProps, styleProps ) =
+            List.partition isAttr model.style
+
+        ( style, transforms ) =
+            List.foldl
+                (\prop ( style, transforms ) ->
+                    if isTransformation prop then
+                        ( style, transforms ++ [ prop ] )
+                    else
+                        ( style ++ [ prop ], transforms )
+                )
+                ( [], [] )
+                styleProps
+
+        renderedStyle =
+            List.map (\prop -> ( propertyName prop, propertyValue prop " " )) style
+    in
+        if List.length transforms == 0 then
+            List.concatMap prefix renderedStyle
+        else
+            List.concatMap prefix <|
+                ( "transform"
+                , String.concat <|
+                    List.map
+                        (\prop ->
+                            propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
+                        )
+                        transforms
+                )
+                    :: renderedStyle
 
 
 renderAttrs : Property -> Maybe (Html.Attribute msg)
@@ -2884,6 +3028,9 @@ propertyName prop =
         Display _ ->
             "display"
 
+        CustomProperty name _ _ ->
+            name
+
         ColorProperty name _ _ _ _ ->
             name
 
@@ -2942,6 +3089,9 @@ propertyValue prop delim =
     case prop of
         Display mode ->
             displayModeName mode
+
+        CustomProperty _ value suffix ->
+            toString value ++ suffix
 
         ColorProperty _ r g b a ->
             "rgba("
@@ -3018,11 +3168,11 @@ propertyValue prop delim =
 
         Path cmds ->
             String.join " " <|
-                List.map cmdValue cmds
+                List.map pathCmdValue cmds
 
 
-cmdValue : PathCommand -> String
-cmdValue cmd =
+pathCmdValue : PathCommand -> String
+pathCmdValue cmd =
     let
         renderPoints coords =
             String.join " " <|
