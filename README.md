@@ -58,7 +58,7 @@ __Set up a tick `Msg`.__  The animation can send messages for you, which is why 
 ```
 
 
-__Render our animation__ at the necessary element in our view.  Note that not all animated properties are style properties.  Notable examples are for animating svg paths and polygon points.  `Html.Attributes.style` will(hopefully) be combinable in the future, allowing for additional style properties to be added.
+__Render our animation__ at the necessary element in our view.  Not all animated properties are style properties.  Notable examples are for animating svg paths and polygon points.  `Html.Attributes.style` will(hopefully) be combinable in the future, allowing for additional style properties to be added.
 ```elm
     div
         ( Animation.render model.style )
