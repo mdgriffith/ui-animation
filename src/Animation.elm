@@ -80,8 +80,15 @@ module Animation
         , smoothQuadratic
         , smoothQuadraticTo
         , px
+        , percent
+        , em
+        , rem
         , turn
         , deg
+        , grad
+        , rad
+        , custom
+        , exactly
         , isRunning
         )
 
@@ -148,7 +155,7 @@ type alias Style =
 {-| For each 'value' of a property, we track position, velocity, interpolation, and target.
 -}
 type Property
-    = Display DisplayMode
+    = ExactProperty String String
     | ColorProperty String Motion Motion Motion Motion
     | ShadowProperty String Bool ShadowMotion
     | Property String Motion
@@ -194,8 +201,8 @@ TODO: Path property could have a more intelligent default
 default : Property -> Property
 default property =
     case property of
-        Display mode ->
-            Display Block
+        ExactProperty name value ->
+            ExactProperty name value
 
         ColorProperty name _ _ _ _ ->
             Debug.log (name ++ " has no initial value.  Defaulting to transparent white.") <|
@@ -266,7 +273,7 @@ defaultInterpolationByProperty prop =
                 }
     in
         case prop of
-            Display _ ->
+            ExactProperty _ _ ->
                 spring
 
             ColorProperty _ _ _ _ _ ->
@@ -297,8 +304,8 @@ defaultInterpolationByProperty prop =
 setInterpolation : Interpolation -> Property -> Property
 setInterpolation interp prop =
     case prop of
-        Display mode ->
-            Display mode
+        ExactProperty name value ->
+            ExactProperty name value
 
         ColorProperty name m1 m2 m3 m4 ->
             ColorProperty name
@@ -688,7 +695,7 @@ debug (State model) =
 
         getValueTuple prop =
             case prop of
-                Display _ ->
+                ExactProperty _ _ ->
                     []
 
                 ColorProperty name r g b a ->
@@ -891,7 +898,7 @@ isDone property =
                     eased.progress == 1
     in
         case property of
-            Display _ ->
+            ExactProperty _ _ ->
                 True
 
             ColorProperty _ m1 m2 m3 m4 ->
@@ -1050,8 +1057,8 @@ setTarget current newTarget =
                     }
     in
         case current of
-            Display mode ->
-                Display mode
+            ExactProperty name value ->
+                ExactProperty name value
 
             ColorProperty name m1 m2 m3 m4 ->
                 case newTarget of
@@ -1505,8 +1512,8 @@ step dt props =
     let
         stepProp property =
             case property of
-                Display mode ->
-                    Display mode
+                ExactProperty name value ->
+                    ExactProperty name value
 
                 Property name motion ->
                     Property name (stepInterpolation dt motion)
@@ -2027,6 +2034,11 @@ custom name value unit =
     Property name (initMotion value unit)
 
 
+exactly : String -> String -> Property
+exactly name value =
+    ExactProperty name value
+
+
 opacity : Float -> Property
 opacity x =
     custom "opacity" x ""
@@ -2034,7 +2046,7 @@ opacity x =
 
 display : DisplayMode -> Property
 display mode =
-    Display mode
+    ExactProperty "display" (displayModeName mode)
 
 
 none : DisplayMode
@@ -2933,8 +2945,8 @@ isAttr prop =
 propertyName : Property -> String
 propertyName prop =
     case prop of
-        Display _ ->
-            "display"
+        ExactProperty name _ ->
+            name
 
         ColorProperty name _ _ _ _ ->
             name
@@ -2989,8 +3001,8 @@ displayModeName mode =
 propertyValue : Property -> String -> String
 propertyValue prop delim =
     case prop of
-        Display mode ->
-            displayModeName mode
+        ExactProperty _ value ->
+            value
 
         ColorProperty _ r g b a ->
             "rgba("
