@@ -3,7 +3,7 @@ This code will eventually be released as a major version to [elm-style-animation
 
 The main purpose of this rewrite was to change the API to use a list based api vs the pipes based api that was used previously.  I also wanted to take the time to really polish the API.
 
-I've filed a number of issues on this repo on design points that I would love feedback on.  Please reply to them if you have any thoughts or submit any additional issues if you've thought of something I've missed!
+I've filed a number of issues on this repo on design points that I would love feedback on.  Please reply to them if you have any thoughts or submit an issue if you've thought of something I've missed!
 
 
 ## Modules
@@ -18,7 +18,7 @@ I've filed a number of issues on this repo on design points that I would love fe
 To get started, there are a few things that need to happen.
 
 
-Set an initial style in your model.
+__Set an initial style__ in your model.
 
 ```elm
 init : ( Model, Cmd Msg )
@@ -34,7 +34,7 @@ init =
 
 ```
 
-Subscribe to Animation's subscription.  This will animate using AnimationFrame when something is running, and stop giving updates when there is no animation.  We have `Animate (Animation.State msg)` in our `Msg` type.
+__Subscribe to Animation's subscription.__  This will animate using AnimationFrame when something is running, and stop giving updates when there is no animation.  We have `Animate (Animation.State msg)` in our `Msg` type.
 ```elm
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -43,7 +43,7 @@ subscriptions model =
 ```
 
 
-Set up a tick `Msg`.  The animation can send messages for you, which is why it returns a `cmd`.
+__Set up a tick `Msg`.__  The animation can send messages for you, which is why it returns a `cmd`.
 ```elm
         Animate time ->
             let
@@ -58,7 +58,7 @@ Set up a tick `Msg`.  The animation can send messages for you, which is why it r
 ```
 
 
-Render our animation at the necessary element in our view.  Note that not all animated properties are style properties.  Notable examples are for animating svg paths and polygon points.  `Html.Attributes.style` will(hopefully) be combinable in the future, allowing for additional style properties to be added.
+__Render our animation__ at the necessary element in our view.  Note that not all animated properties are style properties.  Notable examples are for animating svg paths and polygon points.  `Html.Attributes.style` will(hopefully) be combinable in the future, allowing for additional style properties to be added.
 ```elm
     div
         ( Animation.render model.style )
@@ -72,7 +72,7 @@ Render our animation at the necessary element in our view.  Note that not all an
 
 
 
-And finally specify our animation in our update statement.
+And finally __specify our animation__ in our update statement.
 
 ```elm
     case msgs of
@@ -101,7 +101,6 @@ Here's geerally how we compose animations.
     * `Animation.send YourMsg` - Send a custom `Msg` when this point is reached.  Very useful for doing `onFinished` style work, fire a msg when something fades out, etc.
     * `Animation.repeat x [..list of steps to repeat]` - Repeat a list of steps x times.
     * `Animation.loop [..list of steps to repeat]` - Loop a list of steps forever/until interrupted.
-
 
 
 ## Examples
