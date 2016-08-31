@@ -87,33 +87,6 @@ greyedOut =
 update : Action -> Model -> ( Model, Cmd Action )
 update action model =
     case action of
-        --EverybodySwitch ->
-        --    let
-        --        wrappedIndex =
-        --            if List.length model.styles < model.index then
-        --                model.index - List.length model.styles
-        --            else
-        --                model.index
-        --        newStyles =
-        --            (List.drop wrappedIndex polygons) ++ (List.take wrappedIndex polygons)
-        --    in
-        --        ( { model
-        --            | index = wrappedIndex + 1
-        --            , styles =
-        --                List.map3
-        --                    (\i style newStyle ->
-        --                        Animation.interrupt
-        --                            [ Animation.wait (toFloat i * 0.05 * second)
-        --                            , Animation.to newStyle
-        --                            ]
-        --                            style
-        --                    )
-        --                    [0..List.length model.styles]
-        --                    model.styles
-        --                    newStyles
-        --          }
-        --        , Cmd.none
-        --        )
         SwitchTo i ->
             let
                 newPolygon =
@@ -169,7 +142,7 @@ view model =
                 []
             , Svg.g []
                 (List.indexedMap
-                    (\i poly -> polygon ((Animation.render poly) ++ [ onClick <| SwitchTo i ]) [])
+                    (\i poly -> polygon (Animation.render poly ++ [ onClick <| SwitchTo i ]) [])
                     greyedOut
                 )
             , polygon (Animation.render model.shape) []

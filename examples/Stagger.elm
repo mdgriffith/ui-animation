@@ -103,23 +103,24 @@ view model =
         ]
 
 
-viewWidget : Animation.State msg -> Html Msg
+viewWidget : Animation.State Msg -> Html Msg
 viewWidget anim =
     div
-        [ style <|
-            [ ( "border-radius", "20px" )
-            , ( "width", "40px" )
-            , ( "height", "40px" )
-            , ( "position", "fixed" )
-            , ( "background-color", "#4e9a06" )
-            , ( "z-index", "0" )
-            , ( "display", "inline-block" )
-            , ( "margin", "10px" )
-            , ( "text-align", "center" )
-            , ( "line-height", "40px" )
-            ]
-                ++ Animation.renderStyle anim
-        ]
+        (Animation.render anim
+            ++ [ style <|
+                    [ ( "border-radius", "20px" )
+                    , ( "width", "40px" )
+                    , ( "height", "40px" )
+                    , ( "position", "fixed" )
+                    , ( "background-color", "#4e9a06" )
+                    , ( "z-index", "0" )
+                    , ( "display", "inline-block" )
+                    , ( "margin", "10px" )
+                    , ( "text-align", "center" )
+                    , ( "line-height", "40px" )
+                    ]
+               ]
+        )
         []
 
 

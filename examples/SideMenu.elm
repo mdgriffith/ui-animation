@@ -86,20 +86,20 @@ view model =
         [ h1 [ style [ ( "padding", "25px" ) ] ]
             [ text "Hover here to see menu!" ]
         , div
-            [ style
-                ([ ( "position", "absolute" )
-                 , ( "top", "-2px" )
-                 , ( "margin-left", "-2px" )
-                 , ( "padding", "25px" )
-                 , ( "width", "300px" )
-                 , ( "height", "100%" )
-                 , ( "background-color", "rgb(58,40,69)" )
-                 , ( "color", "white" )
-                 , ( "border", "2px solid rgb(58,40,69)" )
-                 ]
-                    ++ (Animation.renderStyle model.style)
-                )
-            ]
+            (Animation.render model.style
+                ++ [ style
+                        [ ( "position", "absolute" )
+                        , ( "top", "-2px" )
+                        , ( "margin-left", "-2px" )
+                        , ( "padding", "25px" )
+                        , ( "width", "300px" )
+                        , ( "height", "100%" )
+                        , ( "background-color", "rgb(58,40,69)" )
+                        , ( "color", "white" )
+                        , ( "border", "2px solid rgb(58,40,69)" )
+                        ]
+                   ]
+            )
             [ h1 [] [ text "Hidden Menu" ]
             , ul []
                 [ li [] [ text "Some things" ]

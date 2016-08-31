@@ -264,25 +264,6 @@ batmanLogos =
     ]
 
 
-
--- startLogo =
---   [ MoveTo 212 220
---   , LineTo 500 200
---   , Close
---   ]
---
--- batmanLogos =
---   [ [ MoveTo 212 220
---     , LineTo 500 200
---     , Close
---     ]
---   , [ MoveTo 212 220
---     , LineTo 800 700
---     , Close
---     ]
---   ]
-
-
 update : Action -> Model -> ( Model, Cmd Action )
 update action model =
     case action of

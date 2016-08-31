@@ -1,7 +1,6 @@
 module Animation
     exposing
         ( render
-        , renderStyle
         , interrupt
         , queue
         , wait
@@ -9,6 +8,8 @@ module Animation
         , State
         , to
         , set
+        , repeat
+        , loop
         , tick
         , style
         , styleWith
@@ -532,6 +533,12 @@ wait till =
 to : List Property -> Step msg
 to props =
     To props
+
+
+
+--{-| Animate two properties along a relative curve
+---}
+--along : List (Float, Float) -> (Property, Property) -> Step msg
 
 
 set : List Property -> Step msg
@@ -2818,41 +2825,6 @@ render (State model) =
             List.filterMap renderAttrs attrProps
     in
         styleAttr :: otherAttrs
-
-
-renderStyle : State msg -> List ( String, String )
-renderStyle (State model) =
-    let
-        ( attrProps, styleProps ) =
-            List.partition isAttr model.style
-
-        ( style, transforms ) =
-            List.foldl
-                (\prop ( style, transforms ) ->
-                    if isTransformation prop then
-                        ( style, transforms ++ [ prop ] )
-                    else
-                        ( style ++ [ prop ], transforms )
-                )
-                ( [], [] )
-                styleProps
-
-        renderedStyle =
-            List.map (\prop -> ( propertyName prop, propertyValue prop " " )) style
-    in
-        if List.length transforms == 0 then
-            List.concatMap prefix renderedStyle
-        else
-            List.concatMap prefix <|
-                ( "transform"
-                , String.concat <|
-                    List.map
-                        (\prop ->
-                            propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
-                        )
-                        transforms
-                )
-                    :: renderedStyle
 
 
 renderAttrs : Property -> Maybe (Html.Attribute msg)

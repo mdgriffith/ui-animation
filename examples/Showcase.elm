@@ -75,10 +75,8 @@ update action model =
                     Dict.update (toString RotateAllAxis)
                         (Maybe.map <|
                             Animation.interrupt
-                                [ Animation.to
-                                    [ Animation.rotateX (turn 1)
-                                    , Animation.rotateY (turn 1)
-                                    , Animation.rotate (turn 1)
+                                [ Animation.loop
+                                    [ Animation.to [ Animation.rotate (turn 1) ]
                                     ]
                                 ]
                         )
@@ -246,22 +244,6 @@ update action model =
                 )
 
 
-
---updates : List Msg -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
---updates msgs modelCmd =
---    List.foldl
---        (\msg ( model, cmd ) ->
---            let
---                ( newModel, newCmd ) =
---                    update msg model
---            in
---                ( newModel, Cmd.batch [ cmd, newCmd ] )
---        )
---        modelCmd
---        msgs
--- VIEW
-
-
 view : Model -> Html Msg
 view model =
     div
@@ -281,26 +263,25 @@ view model =
 
 box : Dict String (Animation.State Msg) -> Widget -> Html Msg
 box styles widget =
-    let
-        boxStyle =
-            [ ( "position", "relative" )
-            , ( "display", "inline-block" )
-            , ( "margin", "50px 50px" )
-            , ( "padding", "25px" )
-            , ( "text-align", "center" )
-            , ( "width", "100px" )
-            , ( "height", "100px" )
-            , ( "color", "white" )
-            , ( "cursor", "pointer" )
-            , ( "border-style", "solid" )
-            , ( "vertical-align", "middle" )
-            ]
-    in
-        div
-            (Animation.Dict.render (toString widget.action) styles
-                ++ [ onClick (widget.action) ]
-            )
-            [ text widget.label ]
+    div
+        (Animation.Dict.render (toString widget.action) styles
+            ++ [ style
+                    [ ( "position", "relative" )
+                    , ( "display", "inline-block" )
+                    , ( "margin", "50px 50px" )
+                    , ( "padding", "25px" )
+                    , ( "text-align", "center" )
+                    , ( "width", "100px" )
+                    , ( "height", "100px" )
+                    , ( "color", "white" )
+                    , ( "cursor", "pointer" )
+                    , ( "border-style", "solid" )
+                    , ( "vertical-align", "middle" )
+                    ]
+               , onClick (widget.action)
+               ]
+        )
+        [ text widget.label ]
 
 
 initialWidgetStyle =
