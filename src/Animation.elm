@@ -6,11 +6,12 @@ module Animation
         , wait
         , subscription
         , State
+        , Msg
         , to
         , set
         , repeat
         , loop
-        , tick
+        , update
         , style
         , styleWith
         , styleWithEach
@@ -134,6 +135,10 @@ type Step msg
     | Send msg
     | Repeat Int (List (Step msg))
     | Loop (List (Step msg))
+
+
+type Msg
+    = Tick Time
 
 
 type Interpolation
@@ -656,10 +661,10 @@ extractInitialWait steps =
 It is throttled based on whether the current animation is running or not.
 
 -}
-subscription : State msg -> (Time -> msg) -> Sub msg
+subscription : State msg -> (Msg -> msg) -> Sub msg
 subscription (State model) msg =
     if model.running then
-        AnimationFrame.times msg
+        Sub.map msg (AnimationFrame.times Tick)
     else
         Sub.none
 
@@ -767,8 +772,8 @@ debug (State model) =
         List.concatMap getValueTuple model.style
 
 
-tick : Time -> State msg -> ( State msg, Cmd msg )
-tick now (State model) =
+update : Msg -> State msg -> ( State msg, Cmd msg )
+update (Tick now) (State model) =
     let
         -- set current and dt time
         timing =
