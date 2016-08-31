@@ -43,12 +43,12 @@ subscriptions model =
 ```
 
 
-__Set up a tick `Msg`.__  The animation can send messages for you, which is why it returns a `cmd`.
+__Set up an update `Msg`.__  The animation can send messages for you, which is why it returns a `cmd`.
 ```elm
-        Animate time ->
+        Animate animMsg ->
             let
                 ( anim, cmd ) =
-                    Animation.tick time model.style
+                    Animation.update animMsg model.style
             in
                 ( { model
                     | animation = anim
