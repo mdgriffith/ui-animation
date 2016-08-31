@@ -1864,10 +1864,10 @@ lengthUnitName unit =
 
 
 {-| I know this is very bizarre, why don't we just specify a Float in each type constructor of LengthUnit?
-The reason for this is that later on we handle units separately from a 'float' value.
 
-Specifically, the 'Motion' type is used to house all the values for all the different types of properties and the units live outside of that type.
+Length is only used in the assigning function before LengthUnit is converted into a string and added to a `Motion` type.
 
+I can get the value and the length unit via unpacking the tuple instead of having a separate function to get the value.
 -}
 type alias Length =
     ( Float, LengthUnit )

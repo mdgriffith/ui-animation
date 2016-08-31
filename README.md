@@ -12,6 +12,7 @@ I've filed a number of issues on this repo on design points that I would love fe
  * __Animation.Dict__ - Same for organizing your animations into a `Dict`.
 
 
+
 ## Basic Animation
 
 To get started, there are a few things that need to happen.
