@@ -58,10 +58,16 @@ __Set up an update `Msg`.__  The animation can send messages for you, which is w
 ```
 
 
-__Render our animation__ at the necessary element in our view.  Not all animated properties are style properties.  Notable examples are for animating svg paths and polygon points.  `Html.Attributes.style` will(hopefully) be combinable in the future, allowing for additional style properties to be added.
+__Render our animation__ at the necessary element in our view.  Not all animated properties are style properties.  Notable examples are for animating svg paths and polygon points.  `Html.Attributes.style` stacks, so we can still add style properties!
 ```elm
     div
-        ( Animation.render model.style )
+        (Animation.render model.style
+            ++ [ style
+                    [ ( "position", "absolute" )
+                    , ( "border-style", "dotted" )
+                    ]
+               ]
+        )
         [ h1 [] [ text "Hidden Menu" ]
         , ul []
             [ li [] [ text "Some things" ]
@@ -69,6 +75,8 @@ __Render our animation__ at the necessary element in our view.  Not all animated
             ]
         ]
 ```
+
+
 
 
 __Specify our animation__ in our update statement.
