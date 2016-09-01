@@ -12,6 +12,7 @@ module Animation
         , repeat
         , loop
         , update
+        , getCmds
         , style
         , styleWith
         , styleWithEach
@@ -91,7 +92,6 @@ module Animation
         , rad
         , custom
         , exactly
-        , isRunning
         )
 
 import Color exposing (Color)
@@ -110,6 +110,7 @@ type State msg
         , style : List Property
         , timing : Timing
         , running : Bool
+        , sentMessages : List msg
         , interruption : List ( Time, Animation msg )
         }
 
@@ -577,6 +578,7 @@ initialState current =
             }
         , running = False
         , interruption = []
+        , sentMessages = []
         }
 
 
@@ -661,9 +663,9 @@ extractInitialWait steps =
 It is throttled based on whether the current animation is running or not.
 
 -}
-subscription : State msg -> (Msg -> msg) -> Sub msg
-subscription (State model) msg =
-    if model.running then
+subscription : List (State msg) -> (Msg -> msg) -> Sub msg
+subscription states msg =
+    if List.any Animation.isRunning states then
         Sub.map msg (AnimationFrame.times Tick)
     else
         Sub.none
@@ -772,7 +774,7 @@ debug (State model) =
         List.concatMap getValueTuple model.style
 
 
-update : Msg -> State msg -> ( State msg, Cmd msg )
+update : Msg -> State msg -> State msg
 update (Tick now) (State model) =
     let
         -- set current and dt time
@@ -802,16 +804,26 @@ update (Tick now) (State model) =
         ( revisedStyle, sentMessages, revisedQueue ) =
             resolveQueue model.style queue timing.dt
     in
-        ( State
+        State
             { model
                 | timing = timing
                 , interruption = queuedInterruptions
                 , running = List.length revisedQueue /= 0
                 , steps = revisedQueue
                 , style = revisedStyle
+                , sentMessages = sentMessages
             }
-        , Cmd.batch <| List.map (\m -> Task.perform identity identity (Task.succeed m)) sentMessages
-        )
+
+
+getCmds : List (State msg) -> Cmd msg
+getCmds states =
+    let
+        sentMessages =
+            List.concatMap
+                (\(State model) -> model.sentMessages)
+                states
+    in
+        Cmd.batch <| List.map (\m -> Task.perform identity identity (Task.succeed m)) sentMessages
 
 
 resolveQueue : List Property -> Animation msg -> Time -> ( List Property, List msg, Animation msg )
