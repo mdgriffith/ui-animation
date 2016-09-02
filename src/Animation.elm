@@ -139,9 +139,10 @@ type alias Animation msg =
 
 -}
 type Step msg
-    = To (List Property)
+    = Step
+    | To (List Property)
+    | ToWith (List Property)
     | Set (List Property)
-    | Step
     | Wait Time
     | Send msg
     | Repeat Int (List (Step msg))
@@ -189,6 +190,7 @@ type alias Motion =
     , target : Float
     , interpolation : Interpolation
     , unit : String
+    , interpolationOverride : Maybe Interpolation
     }
 
 
@@ -264,7 +266,7 @@ setDefaultInterpolation prop =
         interp =
             defaultInterpolationByProperty prop
     in
-        setInterpolation interp prop
+        mapToMotion (\m -> { m | interpolation = interp }) prop
 
 
 {-|
@@ -318,18 +320,18 @@ defaultInterpolationByProperty prop =
                 spring
 
 
-setInterpolation : Interpolation -> Property -> Property
-setInterpolation interp prop =
+mapToMotion : (Motion -> Motion) -> Property -> Property
+mapToMotion fn prop =
     case prop of
         ExactProperty name value ->
             ExactProperty name value
 
         ColorProperty name m1 m2 m3 m4 ->
             ColorProperty name
-                { m1 | interpolation = interp }
-                { m2 | interpolation = interp }
-                { m3 | interpolation = interp }
-                { m4 | interpolation = interp }
+                (fn m1)
+                (fn m2)
+                (fn m3)
+                (fn m4)
 
         ShadowProperty name inset shadow ->
             let
@@ -360,41 +362,41 @@ setInterpolation interp prop =
                 ShadowProperty
                     name
                     inset
-                    { offsetX = { offsetX | interpolation = interp }
-                    , offsetY = { offsetY | interpolation = interp }
-                    , size = { size | interpolation = interp }
-                    , blur = { blur | interpolation = interp }
-                    , red = { red | interpolation = interp }
-                    , green = { green | interpolation = interp }
-                    , blue = { blue | interpolation = interp }
-                    , alpha = { alpha | interpolation = interp }
+                    { offsetX = fn offsetX
+                    , offsetY = fn offsetY
+                    , size = fn size
+                    , blur = fn blur
+                    , red = fn red
+                    , green = fn green
+                    , blue = fn blue
+                    , alpha = fn alpha
                     }
 
         Property name m1 ->
             Property name
-                { m1 | interpolation = interp }
+                (fn m1)
 
         Property2 name m1 m2 ->
             Property2 name
-                { m1 | interpolation = interp }
-                { m2 | interpolation = interp }
+                (fn m1)
+                (fn m2)
 
         Property3 name m1 m2 m3 ->
             Property3 name
-                { m1 | interpolation = interp }
-                { m2 | interpolation = interp }
-                { m3 | interpolation = interp }
+                (fn m1)
+                (fn m2)
+                (fn m3)
 
         AngleProperty name m1 ->
             AngleProperty name
-                { m1 | interpolation = interp }
+                (fn m1)
 
         Points ms ->
             Points <|
                 List.map
                     (\( x, y ) ->
-                        ( { x | interpolation = interp }
-                        , { y | interpolation = interp }
+                        ( fn x
+                        , fn y
                         )
                     )
                     ms
@@ -402,18 +404,18 @@ setInterpolation interp prop =
         Path cmds ->
             Path <|
                 List.map
-                    (setPathInterpolation interp)
+                    (mapPathMotion fn)
                     cmds
 
 
-setPathInterpolation : Interpolation -> PathCommand -> PathCommand
-setPathInterpolation interp cmd =
+mapPathMotion : (Motion -> Motion) -> PathCommand -> PathCommand
+mapPathMotion fn cmd =
     let
         setCoordInterp coords =
             List.map
                 (\( x, y ) ->
-                    ( { x | interpolation = interp }
-                    , { y | interpolation = interp }
+                    ( fn x
+                    , fn y
                     )
                 )
                 coords
@@ -421,39 +423,39 @@ setPathInterpolation interp cmd =
         case cmd of
             Move m1 m2 ->
                 Move
-                    { m1 | interpolation = interp }
-                    { m2 | interpolation = interp }
+                    (fn m1)
+                    (fn m2)
 
             MoveTo m1 m2 ->
                 MoveTo
-                    { m1 | interpolation = interp }
-                    { m2 | interpolation = interp }
+                    (fn m1)
+                    (fn m2)
 
             Line m1 m2 ->
                 Line
-                    { m1 | interpolation = interp }
-                    { m2 | interpolation = interp }
+                    (fn m1)
+                    (fn m2)
 
             LineTo m1 m2 ->
                 LineTo
-                    { m1 | interpolation = interp }
-                    { m2 | interpolation = interp }
+                    (fn m1)
+                    (fn m2)
 
             Horizontal motion ->
                 Horizontal
-                    { motion | interpolation = interp }
+                    (fn motion)
 
             HorizontalTo motion ->
                 HorizontalTo
-                    { motion | interpolation = interp }
+                    (fn motion)
 
             Vertical motion ->
                 Vertical
-                    { motion | interpolation = interp }
+                    (fn motion)
 
             VerticalTo motion ->
                 VerticalTo
-                    { motion | interpolation = interp }
+                    (fn motion)
 
             Curve coords ->
                 Curve <| setCoordInterp coords
@@ -498,11 +500,11 @@ setPathInterpolation interp cmd =
                             arc.xAxisRotation
                     in
                         { arc
-                            | x = { x | interpolation = interp }
-                            , y = { y | interpolation = interp }
-                            , radiusX = { radiusX | interpolation = interp }
-                            , radiusY = { radiusY | interpolation = interp }
-                            , xAxisRotation = { xAxis | interpolation = interp }
+                            | x = fn x
+                            , y = fn y
+                            , radiusX = fn radiusX
+                            , radiusY = fn radiusY
+                            , xAxisRotation = fn xAxis
                         }
 
             ArcTo arc ->
@@ -524,11 +526,11 @@ setPathInterpolation interp cmd =
                             arc.xAxisRotation
                     in
                         { arc
-                            | x = { x | interpolation = interp }
-                            , y = { y | interpolation = interp }
-                            , radiusX = { radiusX | interpolation = interp }
-                            , radiusY = { radiusY | interpolation = interp }
-                            , xAxisRotation = { xAxis | interpolation = interp }
+                            | x = fn x
+                            , y = fn y
+                            , radiusX = fn radiusX
+                            , radiusY = fn radiusY
+                            , xAxisRotation = fn xAxis
                         }
 
             Close ->
@@ -549,6 +551,22 @@ wait till =
 to : List Property -> Step msg
 to props =
     To props
+
+
+toWith : Interpolation -> List Property -> Step msg
+toWith interp props =
+    ToWith <|
+        List.map
+            (mapToMotion (\m -> { m | interpolation = interp }))
+            props
+
+
+toWithEach : List ( Interpolation, Property ) -> Step msg
+toWithEach interpProps =
+    ToWith <|
+        List.map
+            (\( interp, prop ) -> mapToMotion (\m -> { m | interpolation = interp }) prop)
+            interpProps
 
 
 
@@ -607,7 +625,7 @@ style props =
 -}
 styleWith : Interpolation -> List Property -> State msg
 styleWith interp props =
-    initialState <| List.map (setInterpolation interp) props
+    initialState <| List.map (mapToMotion (\m -> { m | interpolation = interp })) props
 
 
 {-| Set an initial style for an animation and specify the interpolation to be used for each property.
@@ -616,7 +634,7 @@ Any property not listed will receive interpolation based on the standard default
 -}
 styleWithEach : List ( Interpolation, Property ) -> State msg
 styleWithEach props =
-    initialState <| List.map (\( interp, prop ) -> setInterpolation interp prop) props
+    initialState <| List.map (\( interp, prop ) -> mapToMotion (\m -> { m | interpolation = interp }) prop) props
 
 
 {-| Add an animation to the queue, execiting once the current animation finishes
@@ -803,23 +821,30 @@ update (Tick now) (State model) =
 
         -- if there is more than one matching interruptions,
         -- we only take the first, which is the one that was most recently assigned.
-        queue =
+        -- If an interruption does occur, we need to clear any interpolation overrides.
+        ( steps, style ) =
             case List.head readyInterruption of
                 Just ( wait, interrupt ) ->
-                    interrupt
+                    ( interrupt
+                    , List.map (mapToMotion (\m -> { m | interpolationOverride = Nothing })) model.style
+                    )
 
                 Nothing ->
-                    model.steps
+                    ( model.steps, model.style )
 
-        ( revisedStyle, sentMessages, revisedQueue ) =
-            resolveQueue model.style queue timing.dt
+        ( revisedStyle, sentMessages, revisedSteps ) =
+            resolveSteps style steps timing.dt
     in
         State
             { model
                 | timing = timing
                 , interruption = queuedInterruptions
-                , running = List.length revisedQueue /= 0
-                , steps = revisedQueue
+                , running =
+                    List.length revisedSteps
+                        /= 0
+                        || List.length queuedInterruptions
+                        /= 0
+                , steps = revisedSteps
                 , style = revisedStyle
                 , sentMessages = sentMessages
             }
@@ -836,8 +861,8 @@ getCmds states =
         Cmd.batch <| List.map (\m -> Task.perform identity identity (Task.succeed m)) sentMessages
 
 
-resolveQueue : List Property -> Animation msg -> Time -> ( List Property, List msg, Animation msg )
-resolveQueue currentStyle steps dt =
+resolveSteps : List Property -> Animation msg -> Time -> ( List Property, List msg, Animation msg )
+resolveSteps currentStyle steps dt =
     case List.head steps of
         Nothing ->
             ( currentStyle, [], [] )
@@ -846,7 +871,7 @@ resolveQueue currentStyle steps dt =
             case currentStep of
                 Wait n ->
                     if n <= 0 then
-                        resolveQueue currentStyle (List.drop 1 steps) dt
+                        resolveSteps currentStyle (List.drop 1 steps) dt
                     else
                         -- What about a slight overage of time?
                         ( currentStyle, [], (Wait <| n - dt) :: List.drop 1 steps )
@@ -854,39 +879,50 @@ resolveQueue currentStyle steps dt =
                 Send msg ->
                     let
                         ( newStyle, msgs, remainingSteps ) =
-                            resolveQueue currentStyle (List.drop 1 steps) dt
+                            resolveSteps currentStyle (List.drop 1 steps) dt
                     in
                         ( newStyle, msg :: msgs, remainingSteps )
 
                 To target ->
                     -- Add starting time to any properties with duration/easing
-                    resolveQueue
-                        (startTowards currentStyle target)
+                    -- The boolean is to override interpolation or not
+                    resolveSteps
+                        (startTowards False currentStyle target)
+                        (Step :: List.drop 1 steps)
+                        dt
+
+                ToWith target ->
+                    -- Add starting time to any properties with duration/easing
+                    -- The boolean is to override interpolation or not
+                    resolveSteps
+                        (startTowards True currentStyle target)
                         (Step :: List.drop 1 steps)
                         dt
 
                 Set props ->
-                    let
-                        replaced =
-                            replaceProps currentStyle props
-                    in
-                        resolveQueue replaced (List.drop 1 steps) dt
+                    resolveSteps
+                        (replaceProps currentStyle props)
+                        (List.drop 1 steps)
+                        dt
 
                 Step ->
                     let
                         stepped =
                             step dt currentStyle
                     in
-                        ( stepped
-                        , []
-                        , if List.all isDone stepped then
-                            List.drop 1 steps
-                          else
-                            steps
-                        )
+                        if List.all isDone stepped then
+                            ( List.map (mapToMotion (\m -> { m | interpolationOverride = Nothing })) stepped
+                            , []
+                            , List.drop 1 steps
+                            )
+                        else
+                            ( stepped
+                            , []
+                            , steps
+                            )
 
                 Loop steps ->
-                    resolveQueue
+                    resolveSteps
                         currentStyle
                         (steps ++ [ Loop steps ])
                         dt
@@ -895,7 +931,7 @@ resolveQueue currentStyle steps dt =
                     if n == 0 then
                         ( currentStyle, [], List.drop 1 steps )
                     else
-                        resolveQueue
+                        resolveSteps
                             currentStyle
                             (steps ++ [ Repeat (n - 1) steps ])
                             dt
@@ -1044,15 +1080,16 @@ isCmdDone cmd =
 
 
 {-| Set a new target for a style.
-If a property doesn't exist in the current style(listA), use a default instead.
+
+If a property doesn't exist in the current style, issue a warning and do nothing with that property.
 
 If a property doesn't exist as a target, then leave it as is.
 
 Order matters (mostly for transformation stacking)
 
 -}
-startTowards : List Property -> List Property -> List Property
-startTowards current target =
+startTowards : Bool -> List Property -> List Property -> List Property
+startTowards overrideInterp current target =
     List.filterMap
         (\propPair ->
             case propPair of
@@ -1060,35 +1097,73 @@ startTowards current target =
                     Nothing
 
                 ( Just cur, Just to ) ->
-                    Just <| setTarget cur to
+                    Just <| setTarget overrideInterp cur to
 
                 ( Just prop, Nothing ) ->
                     Just prop
 
                 ( Nothing, Just target ) ->
-                    Just <| setTarget (setDefaultInterpolation <| default target) target
+                    let
+                        _ =
+                            Debug.log
+                                "elm-style-animation"
+                                (propertyName target ++ " has no initial value and therefor will not be animated.")
+                    in
+                        Nothing
         )
         (zipPropertiesGreedy current target)
 
 
-setTarget : Property -> Property -> Property
-setTarget current newTarget =
+setTarget : Bool -> Property -> Property -> Property
+setTarget overrideInterp current newTarget =
     let
         setMotionTarget motion targetMotion =
-            case motion.interpolation of
-                Spring _ ->
-                    { motion | target = targetMotion.position }
-
-                Easing ease ->
-                    { motion
-                        | target = targetMotion.position
-                        , interpolation =
-                            Easing
-                                { ease
-                                    | start = motion.position
-                                    , progress = 0
+            let
+                newMotion =
+                    if overrideInterp then
+                        { motion
+                            | interpolationOverride = Just targetMotion.interpolation
+                        }
+                    else
+                        motion
+            in
+                case newMotion.interpolationOverride of
+                    Nothing ->
+                        case newMotion.interpolation of
+                            Spring _ ->
+                                { motion
+                                    | target = targetMotion.position
                                 }
-                    }
+
+                            Easing ease ->
+                                { motion
+                                    | target = targetMotion.position
+                                    , interpolation =
+                                        Easing
+                                            { ease
+                                                | start = motion.position
+                                                , progress = 0
+                                            }
+                                }
+
+                    Just override ->
+                        case override of
+                            Spring _ ->
+                                { newMotion
+                                    | target = targetMotion.position
+                                }
+
+                            Easing ease ->
+                                { motion
+                                    | target = targetMotion.position
+                                    , interpolationOverride =
+                                        Just <|
+                                            Easing
+                                                { ease
+                                                    | start = motion.position
+                                                    , progress = 0
+                                                }
+                                }
     in
         case current of
             ExactProperty name value ->
@@ -1741,76 +1816,98 @@ that is attached to where the easing function says the value should be.
 -}
 stepInterpolation : Time -> Motion -> Motion
 stepInterpolation dtms motion =
-    case motion.interpolation of
-        Spring { stiffness, damping } ->
-            let
-                dt =
-                    dtms / 1000
+    let
+        interpolationToUse =
+            Maybe.withDefault
+                motion.interpolation
+                motion.interpolationOverride
+    in
+        case interpolationToUse of
+            Spring { stiffness, damping } ->
+                let
+                    dt =
+                        dtms / 1000
 
-                fspring =
-                    -stiffness * (motion.position - motion.target)
+                    fspring =
+                        -stiffness * (motion.position - motion.target)
 
-                fdamper =
-                    -damping * motion.velocity
+                    fdamper =
+                        -damping * motion.velocity
 
-                a =
-                    fspring + fdamper
+                    a =
+                        fspring + fdamper
 
-                newVelocity =
-                    motion.velocity + a * dt
+                    newVelocity =
+                        motion.velocity + a * dt
 
-                newPos =
-                    motion.position + newVelocity * dt
+                    newPos =
+                        motion.position + newVelocity * dt
 
-                dx =
-                    abs (motion.target - newPos)
-            in
-                if dx < tolerance && abs newVelocity < vTolerance then
-                    { motion
-                        | position = motion.target
-                        , velocity = 0.0
-                    }
-                else
-                    { motion
-                        | position = newPos
-                        , velocity = newVelocity
-                    }
-
-        Easing { progress, duration, ease, start } ->
-            let
-                newProgress =
-                    if (dtms / duration) + progress < 1 then
-                        (dtms / duration) + progress
+                    dx =
+                        abs (motion.target - newPos)
+                in
+                    if dx < tolerance && abs newVelocity < vTolerance then
+                        { motion
+                            | position = motion.target
+                            , velocity = 0.0
+                        }
                     else
-                        1
+                        { motion
+                            | position = newPos
+                            , velocity = newVelocity
+                        }
 
-                eased =
-                    ease newProgress
+            Easing { progress, duration, ease, start } ->
+                let
+                    newProgress =
+                        if (dtms / duration) + progress < 1 then
+                            (dtms / duration) + progress
+                        else
+                            1
 
-                distance =
-                    motion.target
-                        - start
+                    eased =
+                        ease newProgress
 
-                newPos =
-                    (eased * distance) + start
+                    distance =
+                        motion.target
+                            - start
 
-                newVelocity =
-                    if newProgress == 1 then
-                        0
-                    else
-                        (newPos - motion.position) / dtms
-            in
-                { motion
-                    | position = newPos
-                    , velocity = newVelocity
-                    , interpolation =
-                        Easing
-                            { progress = newProgress
-                            , duration = duration
-                            , ease = ease
-                            , start = start
+                    newPos =
+                        (eased * distance) + start
+
+                    newVelocity =
+                        if newProgress == 1 then
+                            0
+                        else
+                            (newPos - motion.position) / dtms
+                in
+                    case motion.interpolationOverride of
+                        Nothing ->
+                            { motion
+                                | position = newPos
+                                , velocity = newVelocity
+                                , interpolation =
+                                    Easing
+                                        { progress = newProgress
+                                        , duration = duration
+                                        , ease = ease
+                                        , start = start
+                                        }
                             }
-                }
+
+                        Just override ->
+                            { motion
+                                | position = newPos
+                                , velocity = newVelocity
+                                , interpolationOverride =
+                                    Just <|
+                                        Easing
+                                            { progress = newProgress
+                                            , duration = duration
+                                            , ease = ease
+                                            , start = start
+                                            }
+                            }
 
 
 
@@ -1928,6 +2025,7 @@ initMotion position unit =
             { stiffness = 170
             , damping = 26
             }
+    , interpolationOverride = Nothing
     }
 
 
@@ -2931,8 +3029,7 @@ render (State model) =
         styleAttr =
             Html.Attributes.style <|
                 List.concatMap prefix <|
-                    Debug.log "filters" <|
-                        (renderedTransforms ++ renderedFilters ++ renderedStyle)
+                    (renderedTransforms ++ renderedFilters ++ renderedStyle)
 
         otherAttrs =
             List.filterMap renderAttrs attrProps
