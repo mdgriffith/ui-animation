@@ -213,53 +213,6 @@ type DisplayMode
 --------------------------
 
 
-{-| Given a property, return the same property with the value set to a default.
-
-TODO: Path property could have a more intelligent default
--}
-default : Property -> Property
-default property =
-    case property of
-        ExactProperty name value ->
-            ExactProperty name value
-
-        ColorProperty name _ _ _ _ ->
-            Debug.log (name ++ " has no initial value.  Defaulting to transparent white.") <|
-                colorProp name (Color.rgba 255 255 255 0)
-
-        ShadowProperty name inset shade ->
-            ShadowProperty
-                name
-                inset
-                { offsetX = initMotion 0 (shade.offsetX.unit)
-                , offsetY = initMotion 0 (shade.offsetY.unit)
-                , size = initMotion 0 (shade.size.unit)
-                , blur = initMotion 0 (shade.blur.unit)
-                , red = initMotion 0 (shade.red.unit)
-                , green = initMotion 0 (shade.green.unit)
-                , blue = initMotion 0 (shade.blue.unit)
-                , alpha = initMotion 0 (shade.alpha.unit)
-                }
-
-        Property name x ->
-            length name 0 x.unit
-
-        Property2 name x y ->
-            length2 name ( 0, x.unit ) ( 0, y.unit )
-
-        Property3 name x y z ->
-            length3 name ( 0, x.unit ) ( 0, y.unit ) ( 0, z.unit )
-
-        AngleProperty name x ->
-            AngleProperty name (initMotion 0 "deg")
-
-        Points pnts ->
-            Points <| List.map (\_ -> ( initMotion 0 "", initMotion 0 "" )) pnts
-
-        Path cmds ->
-            Path []
-
-
 setDefaultInterpolation : Property -> Property
 setDefaultInterpolation prop =
     let
