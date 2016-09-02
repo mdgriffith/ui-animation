@@ -54,9 +54,11 @@ module Animation
         , borderBottomLeftRadius
         , borderBottomRightRadius
         , shadow
+        , textShadow
         , insetShadow
         , fill
         , stroke
+        , strokeWidth
         , scale
         , scaleX
         , scaleY
@@ -2473,6 +2475,26 @@ type alias ShadowMotion =
     }
 
 
+textShadow : Shadow -> Property
+textShadow shade =
+    let
+        { red, green, blue, alpha } =
+            Color.toRgb shade.color
+    in
+        ShadowProperty
+            "text-shadow"
+            False
+            { offsetX = initMotion shade.offsetX "px"
+            , offsetY = initMotion shade.offsetY "px"
+            , size = initMotion shade.size "px"
+            , blur = initMotion shade.blur "px"
+            , red = initMotion (toFloat red) "px"
+            , green = initMotion (toFloat green) "px"
+            , blue = initMotion (toFloat blue) "px"
+            , alpha = initMotion alpha "px"
+            }
+
+
 shadow : Shadow -> Property
 shadow shade =
     let
@@ -2831,6 +2853,11 @@ fill color =
 stroke : Color -> Property
 stroke color =
     colorProp "stroke" color
+
+
+strokeWidth : Float -> Property
+strokeWidth x =
+    length "stroke-width" x ""
 
 
 {-| Given two lists of coordinates, rotate the list so that the lowest coordinate is first.
