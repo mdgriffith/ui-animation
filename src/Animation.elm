@@ -82,6 +82,16 @@ module Animation
         , smoothTo
         , smoothQuadratic
         , smoothQuadraticTo
+        , filterUrl
+        , blur
+        , brightness
+        , contrast
+        , grayscale
+        , greyscale
+        , hueRotate
+        , invert
+        , saturate
+        , sepia
         , px
         , percent
         , em
@@ -665,7 +675,7 @@ It is throttled based on whether the current animation is running or not.
 -}
 subscription : List (State msg) -> (Msg -> msg) -> Sub msg
 subscription states msg =
-    if List.any Animation.isRunning states then
+    if List.any isRunning states then
         Sub.map msg (AnimationFrame.times Tick)
     else
         Sub.none
@@ -2639,6 +2649,56 @@ close =
     Close
 
 
+filterUrl : String -> Property
+filterUrl url =
+    exactly "filter-url" url
+
+
+blur : Length -> Property
+blur ( x, len ) =
+    length "blur" x (lengthUnitName len)
+
+
+brightness : Float -> Property
+brightness x =
+    custom "brightness" x "%"
+
+
+contrast : Float -> Property
+contrast x =
+    custom "contrast" x "%"
+
+
+grayscale : Float -> Property
+grayscale x =
+    custom "grayscale" x "%"
+
+
+greyscale : Float -> Property
+greyscale x =
+    grayscale x
+
+
+hueRotate : Angle -> Property
+hueRotate ( x, angle ) =
+    AngleProperty "hue-rotate" (initMotion x "deg")
+
+
+invert : Float -> Property
+invert x =
+    custom "invert" x "%"
+
+
+saturate : Float -> Property
+saturate x =
+    custom "saturate" x "%"
+
+
+sepia : Float -> Property
+sepia x =
+    custom "sepia" x "%"
+
+
 {-| Describe a path.  To be used in conjunction with the 'd' property for styling svg.
 
 `To` versions of the commands are absolute, while others are relative.
@@ -2808,35 +2868,71 @@ render (State model) =
         ( attrProps, styleProps ) =
             List.partition isAttr model.style
 
-        ( style, transforms ) =
+        ( style, transforms, filters ) =
             List.foldl
-                (\prop ( style, transforms ) ->
+                (\prop ( style, transforms, filters ) ->
                     if isTransformation prop then
-                        ( style, transforms ++ [ prop ] )
+                        ( style
+                        , transforms ++ [ prop ]
+                        , filters
+                        )
+                    else if isFilter prop then
+                        ( style
+                        , transforms
+                        , filters ++ [ prop ]
+                        )
                     else
-                        ( style ++ [ prop ], transforms )
+                        ( style ++ [ prop ]
+                        , transforms
+                        , filters
+                        )
                 )
-                ( [], [] )
+                ( [], [], [] )
                 styleProps
 
         renderedStyle =
             List.map (\prop -> ( propertyName prop, propertyValue prop " " )) style
 
-        styleAttr =
-            if List.length transforms == 0 then
-                Html.Attributes.style <| List.concatMap prefix renderedStyle
+        renderedTransforms =
+            if List.isEmpty transforms then
+                []
             else
-                Html.Attributes.style <|
-                    List.concatMap prefix <|
-                        ( "transform"
-                        , String.concat <|
-                            List.map
-                                (\prop ->
-                                    propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
-                                )
-                                transforms
-                        )
-                            :: renderedStyle
+                [ ( "transform"
+                  , String.concat <|
+                        List.map
+                            (\prop ->
+                                propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
+                            )
+                            transforms
+                  )
+                ]
+
+        renderedFilters =
+            if List.isEmpty filters then
+                []
+            else
+                [ ( "filter"
+                  , String.join " " <|
+                        List.map
+                            (\prop ->
+                                let
+                                    name =
+                                        propertyName prop
+                                in
+                                    if name == "filter-url" then
+                                        "url(\"" ++ (propertyValue prop ", ") ++ "\")"
+                                    else
+                                        propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
+                            )
+                            filters
+                  )
+                ]
+
+        styleAttr =
+            Html.Attributes.style <|
+                List.concatMap prefix <|
+                    Debug.log "filters" <|
+                        (renderedTransforms ++ renderedFilters ++ renderedStyle)
 
         otherAttrs =
             List.filterMap renderAttrs attrProps
@@ -2878,6 +2974,21 @@ isTransformation prop =
         ]
 
 
+isFilter : Property -> Bool
+isFilter prop =
+    List.member (propertyName prop)
+        [ "filter-url"
+        , "blur"
+        , "brightness"
+        , "contrast"
+        , "grayscale"
+        , "hue-rotate"
+        , "invert"
+        , "saturate"
+        , "sepia"
+        ]
+
+
 iePrefix : String
 iePrefix =
     "-ms-"
@@ -2907,6 +3018,12 @@ prefix stylePair =
                 ]
 
             "transform-origin" ->
+                [ stylePair
+                , ( iePrefix ++ propName, propValue )
+                , ( webkitPrefix ++ propName, propValue )
+                ]
+
+            "filter" ->
                 [ stylePair
                 , ( iePrefix ++ propName, propValue )
                 , ( webkitPrefix ++ propName, propValue )
