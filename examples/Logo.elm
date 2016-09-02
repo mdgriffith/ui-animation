@@ -7,8 +7,7 @@ import Html.Attributes as Attr
 import Html.Events exposing (..)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
-import Animation
-import Animation.List
+import Animation exposing (px)
 import Color exposing (purple, green, rgb)
 
 
@@ -20,7 +19,7 @@ type alias Model =
 
 type Action
     = EverybodySwitch
-    | Animate Float
+    | Animate Animation.Msg
 
 
 palette =
@@ -111,15 +110,11 @@ update action model =
                 )
 
         Animate time ->
-            let
-                ( styles, cmd ) =
-                    Animation.List.tick time model.styles
-            in
-                ( { model
-                    | styles = styles
-                  }
-                , cmd
-                )
+            ( { model
+                | styles = List.map (Animation.update time) model.styles
+              }
+            , Animation.getCmds model.styles
+            )
 
 
 view : Model -> Html Action
@@ -153,7 +148,7 @@ view model =
 
 subscriptions : Model -> Sub Action
 subscriptions model =
-    Animation.List.subscription model.styles Animate
+    Animation.subscription model.styles Animate
 
 
 init : ( Model, Cmd Action )

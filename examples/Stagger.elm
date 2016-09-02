@@ -6,7 +6,6 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Time exposing (Time, second)
 import Animation
-import Animation.List
 
 
 type alias Model =
@@ -19,7 +18,7 @@ type Msg
     = Show
     | Hide
     | Toggle
-    | Animate Time
+    | Animate Animation.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -66,15 +65,11 @@ update action model =
             )
 
         Animate time ->
-            let
-                ( newWidgets, cmd ) =
-                    Animation.List.tick time model.widgets
-            in
-                ( { model
-                    | widgets = newWidgets
-                  }
-                , cmd
-                )
+            ( { model
+                | widgets = List.map (Animation.update time) model.widgets
+              }
+            , Animation.getCmds model.widgets
+            )
 
 
 view : Model -> Html Msg
@@ -142,7 +137,7 @@ initWidget i =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Animation.List.subscription model.widgets Animate
+    Animation.subscription model.widgets Animate
 
 
 main =

@@ -19,7 +19,7 @@ type alias Model =
 
 type Action
     = Morph
-    | Animate Float
+    | Animate Animation.Msg
 
 
 startLogo =
@@ -294,15 +294,11 @@ update action model =
                 )
 
         Animate time ->
-            let
-                ( newStyle, cmd ) =
-                    Animation.tick time model.style
-            in
-                ( { model
-                    | style = newStyle
-                  }
-                , cmd
-                )
+            ( { model
+                | style = Animation.update time model.style
+              }
+            , Animation.getCmds [ model.style ]
+            )
 
 
 view : Model -> Html Action
@@ -341,5 +337,5 @@ main =
         { init = init
         , view = view
         , update = update
-        , subscriptions = (\model -> Animation.subscription model.style Animate)
+        , subscriptions = (\model -> Animation.subscription [ model.style ] Animate)
         }
