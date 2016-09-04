@@ -12,7 +12,6 @@ module Animation
         , repeat
         , loop
         , update
-        , getCmds
         , style
         , styleWith
         , styleWithEach
@@ -114,99 +113,15 @@ import Html
 import Html.Attributes
 import Svg.Attributes
 import Task
+import Animation.Model exposing (..)
 
 
-type State msg
-    = State
-        { steps : Animation msg
-        , style : List Property
-        , timing : Timing
-        , running : Bool
-        , sentMessages : List msg
-        , interruption : List ( Time, Animation msg )
-        }
+type alias State =
+    Animation Never
 
 
-type alias Timing =
-    { current : Time
-    , dt : Time
-    }
-
-
-type alias Animation msg =
-    List (Step msg)
-
-
-{-|
-
--}
-type Step msg
-    = Step
-    | To (List Property)
-    | ToWith (List Property)
-    | Set (List Property)
-    | Wait Time
-    | Send msg
-    | Repeat Int (List (Step msg))
-    | Loop (List (Step msg))
-
-
-type Msg
-    = Tick Time
-
-
-type Interpolation
-    = Spring
-        { stiffness : Float
-        , damping : Float
-        }
-    | Easing
-        { progress : Float
-        , duration : Time
-        , start : Time
-        , ease : Float -> Float
-        }
-
-
-type alias Style =
-    List Property
-
-
-{-| For each 'value' of a property, we track position, velocity, interpolation, and target.
--}
-type Property
-    = ExactProperty String String
-    | ColorProperty String Motion Motion Motion Motion
-    | ShadowProperty String Bool ShadowMotion
-    | Property String Motion
-    | Property2 String Motion Motion
-    | Property3 String Motion Motion Motion
-    | AngleProperty String Motion
-    | Points (List ( Motion, Motion ))
-    | Path (List PathCommand)
-
-
-type alias Motion =
-    { position : Float
-    , velocity : Float
-    , target : Float
-    , interpolation : Interpolation
-    , unit : String
-    , interpolationOverride : Maybe Interpolation
-    }
-
-
-{-| A Display value used for the display property.
-A display mode is not animated but can be set using Html.Animation.set
--}
-type DisplayMode
-    = None
-    | Inline
-    | InlineBlock
-    | Block
-    | Flex
-    | InlineFlex
-    | ListItem
+type alias Msg =
+    Tick
 
 
 
@@ -275,223 +190,6 @@ defaultInterpolationByProperty prop =
                 spring
 
 
-mapToMotion : (Motion -> Motion) -> Property -> Property
-mapToMotion fn prop =
-    case prop of
-        ExactProperty name value ->
-            ExactProperty name value
-
-        ColorProperty name m1 m2 m3 m4 ->
-            ColorProperty name
-                (fn m1)
-                (fn m2)
-                (fn m3)
-                (fn m4)
-
-        ShadowProperty name inset shadow ->
-            let
-                offsetX =
-                    shadow.offsetX
-
-                offsetY =
-                    shadow.offsetY
-
-                size =
-                    shadow.size
-
-                blur =
-                    shadow.blur
-
-                red =
-                    shadow.red
-
-                green =
-                    shadow.green
-
-                blue =
-                    shadow.blue
-
-                alpha =
-                    shadow.alpha
-            in
-                ShadowProperty
-                    name
-                    inset
-                    { offsetX = fn offsetX
-                    , offsetY = fn offsetY
-                    , size = fn size
-                    , blur = fn blur
-                    , red = fn red
-                    , green = fn green
-                    , blue = fn blue
-                    , alpha = fn alpha
-                    }
-
-        Property name m1 ->
-            Property name
-                (fn m1)
-
-        Property2 name m1 m2 ->
-            Property2 name
-                (fn m1)
-                (fn m2)
-
-        Property3 name m1 m2 m3 ->
-            Property3 name
-                (fn m1)
-                (fn m2)
-                (fn m3)
-
-        AngleProperty name m1 ->
-            AngleProperty name
-                (fn m1)
-
-        Points ms ->
-            Points <|
-                List.map
-                    (\( x, y ) ->
-                        ( fn x
-                        , fn y
-                        )
-                    )
-                    ms
-
-        Path cmds ->
-            Path <|
-                List.map
-                    (mapPathMotion fn)
-                    cmds
-
-
-mapPathMotion : (Motion -> Motion) -> PathCommand -> PathCommand
-mapPathMotion fn cmd =
-    let
-        setCoordInterp coords =
-            List.map
-                (\( x, y ) ->
-                    ( fn x
-                    , fn y
-                    )
-                )
-                coords
-    in
-        case cmd of
-            Move m1 m2 ->
-                Move
-                    (fn m1)
-                    (fn m2)
-
-            MoveTo m1 m2 ->
-                MoveTo
-                    (fn m1)
-                    (fn m2)
-
-            Line m1 m2 ->
-                Line
-                    (fn m1)
-                    (fn m2)
-
-            LineTo m1 m2 ->
-                LineTo
-                    (fn m1)
-                    (fn m2)
-
-            Horizontal motion ->
-                Horizontal
-                    (fn motion)
-
-            HorizontalTo motion ->
-                HorizontalTo
-                    (fn motion)
-
-            Vertical motion ->
-                Vertical
-                    (fn motion)
-
-            VerticalTo motion ->
-                VerticalTo
-                    (fn motion)
-
-            Curve coords ->
-                Curve <| setCoordInterp coords
-
-            CurveTo coords ->
-                CurveTo <| setCoordInterp coords
-
-            Quadratic coords ->
-                Quadratic <| setCoordInterp coords
-
-            QuadraticTo coords ->
-                QuadraticTo <| setCoordInterp coords
-
-            SmoothQuadratic coords ->
-                SmoothQuadratic <| setCoordInterp coords
-
-            SmoothQuadraticTo coords ->
-                SmoothQuadraticTo <| setCoordInterp coords
-
-            Smooth coords ->
-                Smooth <| setCoordInterp coords
-
-            SmoothTo coords ->
-                SmoothTo <| setCoordInterp coords
-
-            ClockwiseArc arc ->
-                ClockwiseArc <|
-                    let
-                        x =
-                            arc.x
-
-                        y =
-                            arc.y
-
-                        radius =
-                            arc.radius
-
-                        startAngle =
-                            arc.startAngle
-
-                        endAngle =
-                            arc.endAngle
-                    in
-                        { arc
-                            | x = fn x
-                            , y = fn y
-                            , radius = fn radius
-                            , startAngle = fn startAngle
-                            , endAngle = fn endAngle
-                        }
-
-            AntiClockwiseArc arc ->
-                AntiClockwiseArc <|
-                    let
-                        x =
-                            arc.x
-
-                        y =
-                            arc.y
-
-                        radius =
-                            arc.radius
-
-                        startAngle =
-                            arc.startAngle
-
-                        endAngle =
-                            arc.endAngle
-                    in
-                        { arc
-                            | x = fn x
-                            , y = fn y
-                            , radius = fn radius
-                            , startAngle = fn startAngle
-                            , endAngle = fn endAngle
-                        }
-
-            Close ->
-                Close
-
-
 
 --------------------
 -- Animation Steps
@@ -550,9 +248,9 @@ loop steps =
     Loop steps
 
 
-initialState : Style -> State msg
+initialState : Style -> Animation msg
 initialState current =
-    State
+    Animation
         { steps = []
         , style = current
         , timing =
@@ -561,7 +259,6 @@ initialState current =
             }
         , running = False
         , interruption = []
-        , sentMessages = []
         }
 
 
@@ -570,7 +267,7 @@ initialState current =
 Uses standard defaults for interpolation
 
 -}
-style : List Property -> State msg
+style : List Property -> Animation msg
 style props =
     initialState <| List.map setDefaultInterpolation props
 
@@ -578,7 +275,7 @@ style props =
 {-| Set an initial style for an animation and override the standard default for interpolation.
 
 -}
-styleWith : Interpolation -> List Property -> State msg
+styleWith : Interpolation -> List Property -> Animation msg
 styleWith interp props =
     initialState <| List.map (mapToMotion (\m -> { m | interpolation = interp })) props
 
@@ -587,7 +284,7 @@ styleWith interp props =
 
 Any property not listed will receive interpolation based on the standard defaults.
 -}
-styleWithEach : List ( Interpolation, Property ) -> State msg
+styleWithEach : List ( Interpolation, Property ) -> Animation msg
 styleWithEach props =
     initialState <| List.map (\( interp, prop ) -> mapToMotion (\m -> { m | interpolation = interp }) prop) props
 
@@ -595,9 +292,9 @@ styleWithEach props =
 {-| Add an animation to the queue, execiting once the current animation finishes
 
 -}
-queue : Animation msg -> State msg -> State msg
-queue steps (State model) =
-    State
+queue : List (Step msg) -> Animation msg -> Animation msg
+queue steps (Animation model) =
+    Animation
         { model
             | steps = model.steps ++ steps
             , running = True
@@ -607,9 +304,9 @@ queue steps (State model) =
 {-| Interrupt any running animations with the following animation.
 
 -}
-interrupt : Animation msg -> State msg -> State msg
-interrupt steps (State model) =
-    State
+interrupt : List (Step msg) -> Animation msg -> Animation msg
+interrupt steps (Animation model) =
+    Animation
         { model
             | interruption = extractInitialWait steps :: model.interruption
             , running = True
@@ -622,7 +319,7 @@ This is used because the wait at the start of an interruption works differently 
 
 
 -}
-extractInitialWait : Animation msg -> ( Time, Animation msg )
+extractInitialWait : List (Step msg) -> ( Time, List (Step msg) )
 extractInitialWait steps =
     case List.head steps of
         Nothing ->
@@ -646,7 +343,7 @@ extractInitialWait steps =
 It is throttled based on whether the current animation is running or not.
 
 -}
-subscription : List (State msg) -> (Msg -> msg) -> Sub msg
+subscription : List (Animation msgA) -> (Msg -> msgB) -> Sub msgB
 subscription states msg =
     if List.any isRunning states then
         Sub.map msg (AnimationFrame.times Tick)
@@ -657,35 +354,13 @@ subscription states msg =
 {-| Used by Animation.Dict
 
 -}
-isRunning : State msg -> Bool
-isRunning (State model) =
+isRunning : Animation msg -> Bool
+isRunning (Animation model) =
     model.running
 
 
-refreshTiming : Time -> Timing -> Timing
-refreshTiming now timing =
-    let
-        dt =
-            now - timing.current
-
-        -- dt is set to 0 if it is a large dt,
-        -- because that usually means that the user
-        -- left the browser window and came back.
-        -- Perhaps a better way of handling it would be to modify the spring equations
-        -- so that they can handle large dts without overshooting their target.
-        -- The initial frame is where current == 0, in which case dt should be 0 as well.
-    in
-        { current = now
-        , dt =
-            if (dt > 300) || (timing.current == 0) then
-                0.0
-            else
-                dt
-        }
-
-
-debug : State msg -> List ( String, Motion, Time )
-debug (State model) =
+debug : Animation msg -> List ( String, Motion, Time )
+debug (Animation model) =
     let
         time =
             model.timing.current
@@ -757,1093 +432,9 @@ debug (State model) =
         List.concatMap getValueTuple model.style
 
 
-update : Msg -> State msg -> State msg
-update (Tick now) (State model) =
-    let
-        -- set current and dt time
-        timing =
-            refreshTiming now model.timing
-
-        -- Resolve potential interrutions
-        ( readyInterruption, queuedInterruptions ) =
-            List.map
-                (\( wait, steps ) ->
-                    ( wait - timing.dt, steps )
-                )
-                model.interruption
-                |> List.partition
-                    (\( wait, steps ) -> wait <= 0)
-
-        -- if there is more than one matching interruptions,
-        -- we only take the first, which is the one that was most recently assigned.
-        -- If an interruption does occur, we need to clear any interpolation overrides.
-        ( steps, style ) =
-            case List.head readyInterruption of
-                Just ( wait, interrupt ) ->
-                    ( interrupt
-                    , List.map (mapToMotion (\m -> { m | interpolationOverride = Nothing })) model.style
-                    )
-
-                Nothing ->
-                    ( model.steps, model.style )
-
-        ( revisedStyle, sentMessages, revisedSteps ) =
-            resolveSteps style steps timing.dt
-    in
-        State
-            { model
-                | timing = timing
-                , interruption = queuedInterruptions
-                , running =
-                    List.length revisedSteps
-                        /= 0
-                        || List.length queuedInterruptions
-                        /= 0
-                , steps = revisedSteps
-                , style = revisedStyle
-                , sentMessages = sentMessages
-            }
-
-
-getCmds : List (State msg) -> Cmd msg
-getCmds states =
-    let
-        sentMessages =
-            List.concatMap
-                (\(State model) -> model.sentMessages)
-                states
-    in
-        Cmd.batch <| List.map (\m -> Task.perform identity identity (Task.succeed m)) sentMessages
-
-
-resolveSteps : List Property -> Animation msg -> Time -> ( List Property, List msg, Animation msg )
-resolveSteps currentStyle steps dt =
-    case List.head steps of
-        Nothing ->
-            ( currentStyle, [], [] )
-
-        Just currentStep ->
-            case currentStep of
-                Wait n ->
-                    if n <= 0 then
-                        resolveSteps currentStyle (List.drop 1 steps) dt
-                    else
-                        -- What about a slight overage of time?
-                        ( currentStyle, [], (Wait <| n - dt) :: List.drop 1 steps )
-
-                Send msg ->
-                    let
-                        ( newStyle, msgs, remainingSteps ) =
-                            resolveSteps currentStyle (List.drop 1 steps) dt
-                    in
-                        ( newStyle, msg :: msgs, remainingSteps )
-
-                To target ->
-                    -- Add starting time to any properties with duration/easing
-                    -- The boolean is to override interpolation or not
-                    resolveSteps
-                        (startTowards False currentStyle target)
-                        (Step :: List.drop 1 steps)
-                        dt
-
-                ToWith target ->
-                    -- Add starting time to any properties with duration/easing
-                    -- The boolean is to override interpolation or not
-                    resolveSteps
-                        (startTowards True currentStyle target)
-                        (Step :: List.drop 1 steps)
-                        dt
-
-                Set props ->
-                    resolveSteps
-                        (replaceProps currentStyle props)
-                        (List.drop 1 steps)
-                        dt
-
-                Step ->
-                    let
-                        stepped =
-                            step dt currentStyle
-                    in
-                        if List.all isDone stepped then
-                            ( List.map (mapToMotion (\m -> { m | interpolationOverride = Nothing })) stepped
-                            , []
-                            , List.drop 1 steps
-                            )
-                        else
-                            ( stepped
-                            , []
-                            , steps
-                            )
-
-                Loop steps ->
-                    resolveSteps
-                        currentStyle
-                        (steps ++ [ Loop steps ])
-                        dt
-
-                Repeat n steps ->
-                    if n == 0 then
-                        ( currentStyle, [], List.drop 1 steps )
-                    else
-                        resolveSteps
-                            currentStyle
-                            (steps ++ [ Repeat (n - 1) steps ])
-                            dt
-
-
-{-|
--}
-replaceProps : List Property -> List Property -> List Property
-replaceProps props replacements =
-    let
-        replacementNames =
-            List.map propertyName replacements
-
-        removed =
-            List.filter (\prop -> not <| List.member (propertyName prop) replacementNames) props
-    in
-        removed ++ replacements
-
-
-{-| Property is done?
-
-TODO: What about interlaced property animations?
-
--}
-isDone : Property -> Bool
-isDone property =
-    let
-        motionDone motion =
-            case motion.interpolation of
-                Spring _ ->
-                    motion.velocity == 0 && motion.position == motion.target
-
-                Easing eased ->
-                    eased.progress == 1
-    in
-        case property of
-            ExactProperty _ _ ->
-                True
-
-            ColorProperty _ m1 m2 m3 m4 ->
-                List.all motionDone [ m1, m2, m3, m4 ]
-
-            ShadowProperty _ _ shadow ->
-                List.all
-                    motionDone
-                    [ shadow.offsetX
-                    , shadow.offsetY
-                    , shadow.size
-                    , shadow.blur
-                    , shadow.red
-                    , shadow.green
-                    , shadow.blue
-                    , shadow.alpha
-                    ]
-
-            Property _ m1 ->
-                motionDone m1
-
-            Property2 _ m1 m2 ->
-                motionDone m1 && motionDone m2
-
-            Property3 _ m1 m2 m3 ->
-                List.all motionDone [ m1, m2, m3 ]
-
-            AngleProperty _ m1 ->
-                motionDone m1
-
-            Points ms ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) ms
-
-            Path cmds ->
-                List.all isCmdDone cmds
-
-
-isCmdDone : PathCommand -> Bool
-isCmdDone cmd =
-    let
-        motionDone motion =
-            motion.velocity == 0 && motion.position == motion.target
-    in
-        case cmd of
-            Move m1 m2 ->
-                motionDone m1 && motionDone m2
-
-            MoveTo m1 m2 ->
-                motionDone m1 && motionDone m2
-
-            Line m1 m2 ->
-                motionDone m1 && motionDone m2
-
-            LineTo m1 m2 ->
-                motionDone m1 && motionDone m2
-
-            Horizontal motion ->
-                motionDone motion
-
-            HorizontalTo motion ->
-                motionDone motion
-
-            Vertical motion ->
-                motionDone motion
-
-            VerticalTo motion ->
-                motionDone motion
-
-            Curve coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            CurveTo coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            Quadratic coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            QuadraticTo coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            SmoothQuadratic coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            SmoothQuadraticTo coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            Smooth coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            SmoothTo coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
-
-            ClockwiseArc arc ->
-                motionDone arc.x
-                    && motionDone arc.y
-                    && motionDone arc.radius
-                    && motionDone arc.startAngle
-                    && motionDone arc.endAngle
-
-            AntiClockwiseArc arc ->
-                motionDone arc.x
-                    && motionDone arc.y
-                    && motionDone arc.radius
-                    && motionDone arc.startAngle
-                    && motionDone arc.endAngle
-
-            Close ->
-                True
-
-
-{-| Set a new target for a style.
-
-If a property doesn't exist in the current style, issue a warning and do nothing with that property.
-
-If a property doesn't exist as a target, then leave it as is.
-
-Order matters (mostly for transformation stacking)
-
--}
-startTowards : Bool -> List Property -> List Property -> List Property
-startTowards overrideInterp current target =
-    List.filterMap
-        (\propPair ->
-            case propPair of
-                ( cur, Just to ) ->
-                    Just <| setTarget overrideInterp cur to
-
-                ( prop, Nothing ) ->
-                    Just prop
-        )
-        (zipPropertiesGreedy current target)
-
-
-setTarget : Bool -> Property -> Property -> Property
-setTarget overrideInterp current newTarget =
-    let
-        setMotionTarget motion targetMotion =
-            let
-                newMotion =
-                    if overrideInterp then
-                        { motion
-                            | interpolationOverride = Just targetMotion.interpolation
-                        }
-                    else
-                        motion
-            in
-                case newMotion.interpolationOverride of
-                    Nothing ->
-                        case newMotion.interpolation of
-                            Spring _ ->
-                                { motion
-                                    | target = targetMotion.position
-                                }
-
-                            Easing ease ->
-                                { motion
-                                    | target = targetMotion.position
-                                    , interpolation =
-                                        Easing
-                                            { ease
-                                                | start = motion.position
-                                                , progress = 0
-                                            }
-                                }
-
-                    Just override ->
-                        case override of
-                            Spring _ ->
-                                { newMotion
-                                    | target = targetMotion.position
-                                }
-
-                            Easing ease ->
-                                { motion
-                                    | target = targetMotion.position
-                                    , interpolationOverride =
-                                        Just <|
-                                            Easing
-                                                { ease
-                                                    | start = motion.position
-                                                    , progress = 0
-                                                }
-                                }
-    in
-        case current of
-            ExactProperty name value ->
-                ExactProperty name value
-
-            ColorProperty name m1 m2 m3 m4 ->
-                case newTarget of
-                    ColorProperty _ t1 t2 t3 t4 ->
-                        ColorProperty name
-                            (setMotionTarget m1 t1)
-                            (setMotionTarget m2 t2)
-                            (setMotionTarget m3 t3)
-                            (setMotionTarget m4 t4)
-
-                    _ ->
-                        current
-
-            ShadowProperty name inset shadow ->
-                case newTarget of
-                    ShadowProperty _ _ targetShadow ->
-                        ShadowProperty
-                            name
-                            inset
-                            { offsetX = setMotionTarget shadow.offsetX targetShadow.offsetX
-                            , offsetY = setMotionTarget shadow.offsetY targetShadow.offsetY
-                            , size = setMotionTarget shadow.size targetShadow.size
-                            , blur = setMotionTarget shadow.blur targetShadow.blur
-                            , red = setMotionTarget shadow.red targetShadow.red
-                            , green = setMotionTarget shadow.green targetShadow.green
-                            , blue = setMotionTarget shadow.blue targetShadow.blue
-                            , alpha = setMotionTarget shadow.alpha targetShadow.alpha
-                            }
-
-                    _ ->
-                        current
-
-            Property name m1 ->
-                case newTarget of
-                    Property _ t1 ->
-                        Property name
-                            (setMotionTarget m1 t1)
-
-                    _ ->
-                        current
-
-            Property2 name m1 m2 ->
-                case newTarget of
-                    Property2 _ t1 t2 ->
-                        Property2 name
-                            (setMotionTarget m1 t1)
-                            (setMotionTarget m2 t2)
-
-                    _ ->
-                        current
-
-            Property3 name m1 m2 m3 ->
-                case newTarget of
-                    Property3 _ t1 t2 t3 ->
-                        Property3 name
-                            (setMotionTarget m1 t1)
-                            (setMotionTarget m2 t2)
-                            (setMotionTarget m3 t3)
-
-                    _ ->
-                        current
-
-            AngleProperty name m1 ->
-                case newTarget of
-                    AngleProperty _ t1 ->
-                        AngleProperty name
-                            (setMotionTarget m1 t1)
-
-                    _ ->
-                        current
-
-            Points currentPts ->
-                case newTarget of
-                    Points targetPts ->
-                        let
-                            ( m1s, m2s ) =
-                                matchPoints currentPts targetPts
-                        in
-                            Points <|
-                                List.map2
-                                    (\( x1, y1 ) ( x2, y2 ) ->
-                                        ( (setMotionTarget x1 x2)
-                                        , (setMotionTarget y1 y2)
-                                        )
-                                    )
-                                    m1s
-                                    m2s
-
-                    _ ->
-                        current
-
-            --
-            Path cmds ->
-                case newTarget of
-                    Path targets ->
-                        Path <|
-                            List.map2
-                                setPathTarget
-                                cmds
-                                targets
-
-                    _ ->
-                        current
-
-
-setPathTarget : PathCommand -> PathCommand -> PathCommand
-setPathTarget cmd targetCmd =
-    let
-        setMotionTarget motion targetMotion =
-            case motion.interpolation of
-                Spring _ ->
-                    { motion | target = targetMotion.position }
-
-                Easing ease ->
-                    { motion
-                        | target = targetMotion.position
-                        , interpolation =
-                            Easing
-                                { ease | start = motion.position }
-                    }
-    in
-        case cmd of
-            Move m1 m2 ->
-                case targetCmd of
-                    Move t1 t2 ->
-                        Move
-                            (setMotionTarget m1 t1)
-                            (setMotionTarget m2 t2)
-
-                    _ ->
-                        cmd
-
-            MoveTo m1 m2 ->
-                case targetCmd of
-                    MoveTo t1 t2 ->
-                        MoveTo
-                            (setMotionTarget m1 t1)
-                            (setMotionTarget m2 t2)
-
-                    _ ->
-                        cmd
-
-            Line m1 m2 ->
-                case targetCmd of
-                    Line t1 t2 ->
-                        Line
-                            (setMotionTarget m1 t1)
-                            (setMotionTarget m2 t2)
-
-                    _ ->
-                        cmd
-
-            LineTo m1 m2 ->
-                case targetCmd of
-                    LineTo t1 t2 ->
-                        LineTo
-                            (setMotionTarget m1 t1)
-                            (setMotionTarget m2 t2)
-
-                    _ ->
-                        cmd
-
-            Horizontal m1 ->
-                case targetCmd of
-                    Horizontal t1 ->
-                        Horizontal
-                            (setMotionTarget m1 t1)
-
-                    _ ->
-                        cmd
-
-            HorizontalTo m1 ->
-                case targetCmd of
-                    HorizontalTo t1 ->
-                        HorizontalTo
-                            (setMotionTarget m1 t1)
-
-                    _ ->
-                        cmd
-
-            Vertical m1 ->
-                case targetCmd of
-                    Vertical t1 ->
-                        Vertical
-                            (setMotionTarget m1 t1)
-
-                    _ ->
-                        cmd
-
-            VerticalTo m1 ->
-                case targetCmd of
-                    VerticalTo t1 ->
-                        VerticalTo
-                            (setMotionTarget m1 t1)
-
-                    _ ->
-                        cmd
-
-            Curve coords ->
-                case targetCmd of
-                    Curve targetCoords ->
-                        Curve <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
-                                )
-                                coords
-                                targetCoords
-
-                    _ ->
-                        cmd
-
-            CurveTo coords ->
-                case targetCmd of
-                    CurveTo targetCoords ->
-                        CurveTo <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
-                                )
-                                coords
-                                targetCoords
-
-                    _ ->
-                        cmd
-
-            Quadratic coords ->
-                case targetCmd of
-                    Quadratic targetCoords ->
-                        Quadratic <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
-                                )
-                                coords
-                                targetCoords
-
-                    _ ->
-                        cmd
-
-            QuadraticTo coords ->
-                case targetCmd of
-                    QuadraticTo targetCoords ->
-                        QuadraticTo <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
-                                )
-                                coords
-                                targetCoords
-
-                    _ ->
-                        cmd
-
-            SmoothQuadratic coords ->
-                case targetCmd of
-                    SmoothQuadratic targetCoords ->
-                        SmoothQuadratic <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
-                                )
-                                coords
-                                targetCoords
-
-                    _ ->
-                        cmd
-
-            SmoothQuadraticTo coords ->
-                case targetCmd of
-                    SmoothQuadraticTo targetCoords ->
-                        SmoothQuadraticTo <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
-                                )
-                                coords
-                                targetCoords
-
-                    _ ->
-                        cmd
-
-            Smooth coords ->
-                case targetCmd of
-                    Smooth targetCoords ->
-                        Smooth <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
-                                )
-                                coords
-                                targetCoords
-
-                    _ ->
-                        cmd
-
-            SmoothTo coords ->
-                case targetCmd of
-                    SmoothTo targetCoords ->
-                        SmoothTo <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
-                                )
-                                coords
-                                targetCoords
-
-                    _ ->
-                        cmd
-
-            ClockwiseArc arc ->
-                case targetCmd of
-                    ClockwiseArc target ->
-                        ClockwiseArc <|
-                            let
-                                x =
-                                    arc.x
-
-                                y =
-                                    arc.y
-
-                                radius =
-                                    arc.radius
-
-                                startAngle =
-                                    arc.startAngle
-
-                                endAngle =
-                                    arc.endAngle
-                            in
-                                { arc
-                                    | x = setMotionTarget x target.x
-                                    , y = setMotionTarget y target.y
-                                    , radius = setMotionTarget radius target.radius
-                                    , startAngle = setMotionTarget startAngle target.startAngle
-                                    , endAngle = setMotionTarget endAngle target.endAngle
-                                }
-
-                    _ ->
-                        cmd
-
-            AntiClockwiseArc arc ->
-                case targetCmd of
-                    AntiClockwiseArc target ->
-                        AntiClockwiseArc <|
-                            let
-                                x =
-                                    arc.x
-
-                                y =
-                                    arc.y
-
-                                radius =
-                                    arc.radius
-
-                                startAngle =
-                                    arc.startAngle
-
-                                endAngle =
-                                    arc.endAngle
-                            in
-                                { arc
-                                    | x = setMotionTarget x target.x
-                                    , y = setMotionTarget y target.y
-                                    , radius = setMotionTarget radius target.radius
-                                    , startAngle = setMotionTarget startAngle target.startAngle
-                                    , endAngle = setMotionTarget endAngle target.endAngle
-                                }
-
-                    _ ->
-                        cmd
-
-            Close ->
-                Close
-
-
-{-| We match two sets of properties
-
--}
-zipPropertiesGreedy : List Property -> List Property -> List ( Property, Maybe Property )
-zipPropertiesGreedy listA listB =
-    let
-        propertyMatch prop1 prop2 =
-            propertyName prop1 == propertyName prop2
-
-        ( _, warnings, props ) =
-            List.foldl
-                (\_ ( stackA, stackB, result ) ->
-                    case List.head stackA of
-                        Nothing ->
-                            ( stackA, stackB, result )
-
-                        Just a ->
-                            let
-                                matchingB =
-                                    List.head <| List.filter (propertyMatch a) stackB
-                            in
-                                ( List.drop 1 stackA
-                                , case matchingB of
-                                    Nothing ->
-                                        stackB
-
-                                    Just b ->
-                                        List.drop 1 stackB
-                                , result ++ [ ( a, matchingB ) ]
-                                )
-                )
-                ( listA, listB, [] )
-                (List.repeat (List.length listA) 0)
-
-        _ =
-            List.map
-                (\b ->
-                    Debug.log "elm-style-animation" <|
-                        (propertyName b ++ " has no initial value and therefore will not be animated.")
-                )
-                warnings
-    in
-        props
-
-
-{-| Move one step in our interpolation strategy.
-
-For angle properties, wrap at 360 and -360 degrees.
--}
-step : Time -> List Property -> List Property
-step dt props =
-    let
-        stepProp property =
-            case property of
-                ExactProperty name value ->
-                    ExactProperty name value
-
-                Property name motion ->
-                    Property name (stepInterpolation dt motion)
-
-                Property2 name motion1 motion2 ->
-                    Property2 name
-                        (stepInterpolation dt motion1)
-                        (stepInterpolation dt motion2)
-
-                Property3 name motion1 motion2 motion3 ->
-                    Property3 name
-                        (stepInterpolation dt motion1)
-                        (stepInterpolation dt motion2)
-                        (stepInterpolation dt motion3)
-
-                AngleProperty name motion ->
-                    let
-                        stepped =
-                            stepInterpolation dt motion
-
-                        wrapped =
-                            if stepped.position >= 360 && stepped.target >= 360 then
-                                { stepped
-                                    | position = stepped.position - 360
-                                    , target = stepped.target - 360
-                                }
-                            else if stepped.position <= -360 && stepped.target <= -360 then
-                                { stepped
-                                    | position = stepped.position + 360
-                                    , target = stepped.target + 360
-                                }
-                            else if stepped.position >= 360 then
-                                { stepped
-                                    | position = stepped.position - 360
-                                }
-                            else if stepped.position <= -360 then
-                                { stepped
-                                    | position = stepped.position + 360
-                                }
-                            else
-                                stepped
-                    in
-                        AngleProperty name wrapped
-
-                ColorProperty name red green blue alpha ->
-                    ColorProperty name
-                        (stepInterpolation dt red)
-                        (stepInterpolation dt green)
-                        (stepInterpolation dt blue)
-                        (stepInterpolation dt alpha)
-
-                ShadowProperty name inset shadow ->
-                    ShadowProperty
-                        name
-                        inset
-                        { offsetX = stepInterpolation dt shadow.offsetX
-                        , offsetY = stepInterpolation dt shadow.offsetY
-                        , size = stepInterpolation dt shadow.size
-                        , blur = stepInterpolation dt shadow.blur
-                        , red = stepInterpolation dt shadow.red
-                        , green = stepInterpolation dt shadow.green
-                        , blue = stepInterpolation dt shadow.blue
-                        , alpha = stepInterpolation dt shadow.alpha
-                        }
-
-                Points points ->
-                    Points <|
-                        List.map
-                            (\( x, y ) ->
-                                ( stepInterpolation dt x
-                                , stepInterpolation dt y
-                                )
-                            )
-                            points
-
-                Path cmds ->
-                    Path <|
-                        List.map (stepPath dt) cmds
-    in
-        List.map stepProp props
-
-
-stepPath : Time -> PathCommand -> PathCommand
-stepPath dt cmd =
-    let
-        stepCoords coords =
-            List.map
-                (\( x, y ) ->
-                    ( stepInterpolation dt x
-                    , stepInterpolation dt y
-                    )
-                )
-                coords
-    in
-        case cmd of
-            Move m1 m2 ->
-                Move
-                    (stepInterpolation dt m1)
-                    (stepInterpolation dt m2)
-
-            MoveTo m1 m2 ->
-                MoveTo
-                    (stepInterpolation dt m1)
-                    (stepInterpolation dt m2)
-
-            Line m1 m2 ->
-                Line
-                    (stepInterpolation dt m1)
-                    (stepInterpolation dt m2)
-
-            LineTo m1 m2 ->
-                LineTo
-                    (stepInterpolation dt m1)
-                    (stepInterpolation dt m2)
-
-            Horizontal motion ->
-                Horizontal
-                    (stepInterpolation dt motion)
-
-            HorizontalTo motion ->
-                HorizontalTo
-                    (stepInterpolation dt motion)
-
-            Vertical motion ->
-                Vertical
-                    (stepInterpolation dt motion)
-
-            VerticalTo motion ->
-                VerticalTo
-                    (stepInterpolation dt motion)
-
-            Curve coords ->
-                Curve <| stepCoords coords
-
-            CurveTo coords ->
-                CurveTo <| stepCoords coords
-
-            Quadratic coords ->
-                Quadratic <| stepCoords coords
-
-            QuadraticTo coords ->
-                QuadraticTo <| stepCoords coords
-
-            SmoothQuadratic coords ->
-                SmoothQuadratic <| stepCoords coords
-
-            SmoothQuadraticTo coords ->
-                SmoothQuadraticTo <| stepCoords coords
-
-            Smooth coords ->
-                Smooth <| stepCoords coords
-
-            SmoothTo coords ->
-                SmoothTo <| stepCoords coords
-
-            ClockwiseArc arc ->
-                ClockwiseArc <|
-                    { arc
-                        | x = stepInterpolation dt arc.x
-                        , y = stepInterpolation dt arc.y
-                        , radius = stepInterpolation dt arc.radius
-                        , startAngle = stepInterpolation dt arc.startAngle
-                        , endAngle = stepInterpolation dt arc.endAngle
-                    }
-
-            AntiClockwiseArc arc ->
-                AntiClockwiseArc <|
-                    { arc
-                        | x = stepInterpolation dt arc.x
-                        , y = stepInterpolation dt arc.y
-                        , radius = stepInterpolation dt arc.radius
-                        , startAngle = stepInterpolation dt arc.startAngle
-                        , endAngle = stepInterpolation dt arc.endAngle
-                    }
-
-            Close ->
-                Close
-
-
-tolerance =
-    0.01
-
-
-vTolerance =
-    0.1
-
-
-{-| We define duration/easing in terms of a super powerful spring
-that is attached to where the easing function says the value should be.
-
--}
-stepInterpolation : Time -> Motion -> Motion
-stepInterpolation dtms motion =
-    let
-        interpolationToUse =
-            Maybe.withDefault
-                motion.interpolation
-                motion.interpolationOverride
-    in
-        case interpolationToUse of
-            Spring { stiffness, damping } ->
-                let
-                    dt =
-                        dtms / 1000
-
-                    fspring =
-                        -stiffness * (motion.position - motion.target)
-
-                    fdamper =
-                        -damping * motion.velocity
-
-                    a =
-                        fspring + fdamper
-
-                    newVelocity =
-                        motion.velocity + a * dt
-
-                    newPos =
-                        motion.position + newVelocity * dt
-
-                    dx =
-                        abs (motion.target - newPos)
-                in
-                    if dx < tolerance && abs newVelocity < vTolerance then
-                        { motion
-                            | position = motion.target
-                            , velocity = 0.0
-                        }
-                    else
-                        { motion
-                            | position = newPos
-                            , velocity = newVelocity
-                        }
-
-            Easing { progress, duration, ease, start } ->
-                let
-                    newProgress =
-                        if (dtms / duration) + progress < 1 then
-                            (dtms / duration) + progress
-                        else
-                            1
-
-                    eased =
-                        ease newProgress
-
-                    distance =
-                        motion.target
-                            - start
-
-                    newPos =
-                        (eased * distance) + start
-
-                    newVelocity =
-                        if newProgress == 1 then
-                            0
-                        else
-                            (newPos - motion.position) / dtms
-                in
-                    case motion.interpolationOverride of
-                        Nothing ->
-                            { motion
-                                | position = newPos
-                                , velocity = newVelocity
-                                , interpolation =
-                                    Easing
-                                        { progress = newProgress
-                                        , duration = duration
-                                        , ease = ease
-                                        , start = start
-                                        }
-                            }
-
-                        Just override ->
-                            { motion
-                                | position = newPos
-                                , velocity = newVelocity
-                                , interpolationOverride =
-                                    Just <|
-                                        Easing
-                                            { progress = newProgress
-                                            , duration = duration
-                                            , ease = ease
-                                            , start = start
-                                            }
-                            }
+update : Msg -> Animation msg -> Animation msg
+update tick animation =
+    fst <| updateAnimation tick animation
 
 
 
@@ -2110,6 +701,19 @@ exactly name value =
 opacity : Float -> Property
 opacity x =
     custom "opacity" x ""
+
+
+{-| A Display value used for the display property.
+A display mode is not animated but can be set using Html.Animation.set
+-}
+type DisplayMode
+    = None
+    | Inline
+    | InlineBlock
+    | Block
+    | Flex
+    | InlineFlex
+    | ListItem
 
 
 display : DisplayMode -> Property
@@ -2444,18 +1048,6 @@ type alias Shadow =
     }
 
 
-type alias ShadowMotion =
-    { offsetX : Motion
-    , offsetY : Motion
-    , size : Motion
-    , blur : Motion
-    , red : Motion
-    , green : Motion
-    , blue : Motion
-    , alpha : Motion
-    }
-
-
 textShadow : Shadow -> Property
 textShadow shade =
     let
@@ -2725,42 +1317,6 @@ sepia x =
     custom "sepia" x "%"
 
 
-{-| Describe a path.  To be used in conjunction with the 'd' property for styling svg.
-
-`To` versions of the commands are absolute, while others are relative.
-
--}
-type PathCommand
-    = Move Motion Motion
-    | MoveTo Motion Motion
-    | Line Motion Motion
-    | LineTo Motion Motion
-    | Horizontal Motion
-    | HorizontalTo Motion
-    | Vertical Motion
-    | VerticalTo Motion
-    | Curve (List ( Motion, Motion ))
-    | CurveTo (List ( Motion, Motion ))
-    | Quadratic (List ( Motion, Motion ))
-    | QuadraticTo (List ( Motion, Motion ))
-    | SmoothQuadratic (List ( Motion, Motion ))
-    | SmoothQuadraticTo (List ( Motion, Motion ))
-    | Smooth (List ( Motion, Motion ))
-    | SmoothTo (List ( Motion, Motion ))
-    | ClockwiseArc ArcMotion
-    | AntiClockwiseArc ArcMotion
-    | Close
-
-
-type alias ArcMotion =
-    { x : Motion
-    , y : Motion
-    , radius : Motion
-    , startAngle : Motion
-    , endAngle : Motion
-    }
-
-
 pointsProp : List ( Float, Float ) -> List ( Motion, Motion )
 pointsProp pnts =
     List.map (\( x, y ) -> ( initMotion x "", initMotion y "" )) pnts
@@ -2828,38 +1384,6 @@ alignStartingPoint points =
                 (List.drop i points) ++ (List.take i points)
 
 
-{-| Ensure that two lists of points have the same number
-of points by duplicating the last point of the smaller list.
-
--}
-matchPoints : List ( Motion, Motion ) -> List ( Motion, Motion ) -> ( List ( Motion, Motion ), List ( Motion, Motion ) )
-matchPoints points1 points2 =
-    let
-        diff =
-            List.length points1 - List.length points2
-    in
-        if diff > 0 then
-            case List.head <| List.reverse points2 of
-                Nothing ->
-                    ( points1, points2 )
-
-                Just last2 ->
-                    ( points1
-                    , points2 ++ (List.repeat (abs diff) last2)
-                    )
-        else if diff < 0 then
-            case List.head <| List.reverse points1 of
-                Nothing ->
-                    ( points1, points2 )
-
-                Just last1 ->
-                    ( points1 ++ (List.repeat (abs diff) last1)
-                    , points2
-                    )
-        else
-            ( points1, points2 )
-
-
 
 -------------------------
 -- Rendering
@@ -2869,9 +1393,11 @@ matchPoints points1 points2 =
 {-| Render style properties into the style attribute and render other attributes as needed for svg.
 
 Combine "transform" based properties into a single css property.
+
+Combine "filter" based properties into a single css property.
 -}
-render : State msg -> List (Html.Attribute msg)
-render (State model) =
+render : Animation msgA -> List (Html.Attribute msgB)
+render (Animation model) =
     let
         ( attrProps, styleProps ) =
             List.partition isAttr model.style
@@ -3057,37 +1583,6 @@ isAttr prop =
 
         _ ->
             False
-
-
-propertyName : Property -> String
-propertyName prop =
-    case prop of
-        ExactProperty name _ ->
-            name
-
-        ColorProperty name _ _ _ _ ->
-            name
-
-        ShadowProperty name _ _ ->
-            name
-
-        Property name _ ->
-            name
-
-        Property2 name _ _ ->
-            name
-
-        Property3 name _ _ _ ->
-            name
-
-        AngleProperty name _ ->
-            name
-
-        Points _ ->
-            "points"
-
-        Path _ ->
-            "path"
 
 
 displayModeName : DisplayMode -> String
