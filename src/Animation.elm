@@ -1048,23 +1048,11 @@ startTowards overrideInterp current target =
     List.filterMap
         (\propPair ->
             case propPair of
-                ( Nothing, Nothing ) ->
-                    Nothing
-
-                ( Just cur, Just to ) ->
+                ( cur, Just to ) ->
                     Just <| setTarget overrideInterp cur to
 
-                ( Just prop, Nothing ) ->
+                ( prop, Nothing ) ->
                     Just prop
-
-                ( Nothing, Just target ) ->
-                    let
-                        _ =
-                            Debug.log
-                                "elm-style-animation"
-                                (propertyName target ++ " has no initial value and therefor will not be animated.")
-                    in
-                        Nothing
         )
         (zipPropertiesGreedy current target)
 
@@ -1517,54 +1505,31 @@ setPathTarget cmd targetCmd =
 
 {-| We match two sets of properties that have any degree of overlap.
 
-We do a fold over the maximum number of combinations it could be
-(the lengths of boths lists together).
-
-Order matters.
 
 
 -}
-zipPropertiesGreedy : List Property -> List Property -> List ( Maybe Property, Maybe Property )
+zipPropertiesGreedy : List Property -> List Property -> List ( Property, Maybe Property )
 zipPropertiesGreedy listA listB =
     let
         propertyMatch prop1 prop2 =
             propertyName prop1 == propertyName prop2
 
-        ( _, _, zipped ) =
-            List.foldl
-                (\_ ( stackA, stackB, result ) ->
-                    case ( List.head stackA, List.head stackB ) of
-                        ( Nothing, Nothing ) ->
-                            ( [], [], result )
-
-                        ( Just a, Just b ) ->
-                            if propertyMatch a b then
-                                ( List.drop 1 stackA
-                                , List.drop 1 stackB
-                                , result ++ [ ( Just a, Just b ) ]
-                                )
-                            else
-                                ( List.drop 1 stackA
-                                , stackB
-                                , result ++ [ ( Just a, Nothing ) ]
-                                )
-
-                        ( Just _, Nothing ) ->
-                            ( []
-                            , []
-                            , result ++ List.map (\a -> ( Just a, Nothing )) stackA
-                            )
-
-                        ( Nothing, Just _ ) ->
-                            ( []
-                            , []
-                            , result ++ List.map (\b -> ( Nothing, Just b )) stackB
-                            )
+        _ =
+            List.map
+                (\b ->
+                    if List.isEmpty <| List.filter (propertyMatch b) listA then
+                        Debug.log "elm-style-animation" <|
+                            (propertyName b ++ " has no initial value and therefore will not be animated.")
+                    else
+                        ""
                 )
-                ( listA, listB, [] )
-                (List.repeat (List.length listA + List.length listB) 0)
+                listB
     in
-        zipped
+        List.map
+            (\a ->
+                ( a, List.head <| List.filter (propertyMatch a) listB )
+            )
+            listA
 
 
 {-| Move one step in our interpolation strategy.
@@ -3034,11 +2999,15 @@ isTransformation : Property -> Bool
 isTransformation prop =
     List.member (propertyName prop)
         [ "rotate"
+        , "rotateX"
+        , "rotateY"
+        , "rotateZ"
         , "rotate3d"
         , "transform"
         , "transform3d"
         , "translateX"
         , "translateY"
+        , "translateZ"
         , "scale"
         , "scale3d"
         , "scaleX"
