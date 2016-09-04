@@ -6,13 +6,6 @@ The main purpose of this rewrite was to change the API to use a list based api v
 I've filed a number of issues on this repo on design points that I would love feedback on.  Please reply to them if you have any thoughts or submit an issue if you've thought of something I've missed!
 
 
-## Modules
- * __Animation__ - Everything you need to create an animation
- * __Animation.List__ - Some convenience functions for handling a list of animations.  In this case a list of animations means the animations/style for multiple separate html elements.
- * __Animation.Dict__ - Same for organizing your animations into a `Dict`.
-
-
-
 ## Basic Animation
 
 To get started, there are a few things that need to happen.
@@ -21,6 +14,8 @@ To get started, there are a few things that need to happen.
 __Set an initial style__ in your model.
 
 ```elm
+import Animation
+
 init : ( Model, Cmd Msg )
 init =
     ( { style = 
@@ -84,18 +79,22 @@ __Specify our animation__ in our update statement.
 ```elm
     case msgs of
         Show ->
-            ( { model
-                | style =
+            let 
+                newStyle = 
                     Animation.interrupt
-                        [ Animation.to 
-                            [ Animation.left (Animation.px 0.0)
-                            , Animation.opacity 1.0
+                            [ Animation.to 
+                                [ Animation.left (Animation.px 0.0)
+                                , Animation.opacity 1.0
+                                ]
                             ]
-                        ]
-                        model.style
-              }
-            , Cmd.none
-            )
+                            model.style
+            in
+                ( { model
+                    | style = newStyle
+                        
+                  }
+                , Cmd.none
+                )
 ```
 
 Here's generally how we compose animations.
