@@ -14,22 +14,19 @@ To get started, there are a few things that need to happen.
 __Set an initial style__ in your model.
 
 ```elm
-import Animation
+import Animation exposing (px)
 
-init : ( Model, Cmd Msg )
+init : Model
 init =
-    ( { style = 
-        Animation.style 
-            [ Animation.left (Animation.px 0.0)
-            , Animation.opacity 1.0
-            ]
-      }
-    , Cmd.none
-    )
-
+    { style = 
+            Animation.style 
+                [ Animation.left (px 0.0)
+                , Animation.opacity 1.0
+                ]
+    }
 ```
 
-__Subscribe to Animation's subscription.__  This will animate using AnimationFrame when something is running, and stop giving updates when there is no animation.  We have `Animate (Animation.State msg)` in our `Msg` type.
+__Subscribe to Animation's subscription.__  This will animate using AnimationFrame when something is running, and stop giving updates when there is no animation. 
 ```elm
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -38,18 +35,13 @@ subscriptions model =
 ```
 
 
-__Set up an update `Msg`.__  The animation can send messages for you, which is why it returns a `cmd`.
+__Set up an update `Msg`__ in your update function.
 ```elm
-        Animate animMsg ->
-            let
-                ( anim, cmd ) =
-                    Animation.update animMsg model.style
-            in
-                ( { model
-                    | animation = anim
-                  }
-                , cmd
-                )
+    Animate animMsg ->
+        { model
+            | animation = Animation.update animMsg model.style
+        }
+                
 ```
 
 
@@ -77,24 +69,21 @@ __Render our animation__ at the necessary element in our view.  Not all animated
 __Specify our animation__ in our update statement.
 
 ```elm
-    case msgs of
-        Show ->
-            let 
-                newStyle = 
-                    Animation.interrupt
-                            [ Animation.to 
-                                [ Animation.left (Animation.px 0.0)
-                                , Animation.opacity 1.0
-                                ]
-                            ]
-                            model.style
-            in
-                ( { model
-                    | style = newStyle
-                        
-                  }
-                , Cmd.none
-                )
+case msgs of
+    Show ->
+        let 
+            newStyle = 
+                Animation.interrupt
+                    [ Animation.to 
+                        [ Animation.left (px 0.0)
+                        , Animation.opacity 1.0
+                        ]
+                    ]
+                    model.style
+        in
+            { model
+                | style = newStyle
+            }
 ```
 
 Here's generally how we compose animations.
