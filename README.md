@@ -45,7 +45,7 @@ __Set up an update `Msg`__ in your update function.
 ```
 
 
-__Render our animation__ at the necessary element in our view.  Not all animated properties are style properties.  Notable examples are for animating svg paths and polygon points.  `Html.Attributes.style` stacks, so we can still add style properties!
+__Render our animation__ at the necessary element in your view.  Not all animated properties are style properties.  Notable examples are for animating svg paths and polygon points.  `Html.Attributes.style` stacks, so we can still add style properties!
 ```elm
     div
         (Animation.render model.style
@@ -55,18 +55,13 @@ __Render our animation__ at the necessary element in our view.  Not all animated
                     ]
                ]
         )
-        [ h1 [] [ text "Hidden Menu" ]
-        , ul []
-            [ li [] [ text "Some things" ]
-            , li [] [ text "in a list" ]
-            ]
-        ]
+        [ text "This is being Animated!" ]
 ```
 
 
 
 
-__Specify our animation__ in our update statement.
+__Start an animation__ in your update statement.
 
 ```elm
 case msgs of
