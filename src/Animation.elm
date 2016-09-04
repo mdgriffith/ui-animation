@@ -1503,9 +1503,7 @@ setPathTarget cmd targetCmd =
                 Close
 
 
-{-| We match two sets of properties that have any degree of overlap.
-
-
+{-| We match two sets of properties
 
 -}
 zipPropertiesGreedy : List Property -> List Property -> List ( Property, Maybe Property )
@@ -1514,22 +1512,40 @@ zipPropertiesGreedy listA listB =
         propertyMatch prop1 prop2 =
             propertyName prop1 == propertyName prop2
 
+        ( _, warnings, props ) =
+            List.foldl
+                (\_ ( stackA, stackB, result ) ->
+                    case List.head stackA of
+                        Nothing ->
+                            ( stackA, stackB, result )
+
+                        Just a ->
+                            let
+                                matchingB =
+                                    List.head <| List.filter (propertyMatch a) stackB
+                            in
+                                ( List.drop 1 stackA
+                                , case matchingB of
+                                    Nothing ->
+                                        stackB
+
+                                    Just b ->
+                                        List.drop 1 stackB
+                                , result ++ [ ( a, matchingB ) ]
+                                )
+                )
+                ( listA, listB, [] )
+                (List.repeat (List.length listA) 0)
+
         _ =
             List.map
                 (\b ->
-                    if List.isEmpty <| List.filter (propertyMatch b) listA then
-                        Debug.log "elm-style-animation" <|
-                            (propertyName b ++ " has no initial value and therefore will not be animated.")
-                    else
-                        ""
+                    Debug.log "elm-style-animation" <|
+                        (propertyName b ++ " has no initial value and therefore will not be animated.")
                 )
-                listB
+                warnings
     in
-        List.map
-            (\a ->
-                ( a, List.head <| List.filter (propertyMatch a) listB )
-            )
-            listA
+        props
 
 
 {-| Move one step in our interpolation strategy.
