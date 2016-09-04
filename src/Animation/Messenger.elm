@@ -7,6 +7,6 @@ type State msg
     = Animation msg
 
 
-update : Msg -> Animation msg -> Animation msg
+update : Tick -> Animation msg -> ( Animation msg, Cmd msg )
 update tick animation =
     updateAnimation tick animation
