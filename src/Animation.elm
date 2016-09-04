@@ -436,8 +436,8 @@ mapPathMotion fn cmd =
             SmoothTo coords ->
                 SmoothTo <| setCoordInterp coords
 
-            ArcCmd arc ->
-                ArcCmd <|
+            ClockwiseArc arc ->
+                ClockwiseArc <|
                     let
                         x =
                             arc.x
@@ -445,25 +445,25 @@ mapPathMotion fn cmd =
                         y =
                             arc.y
 
-                        radiusX =
-                            arc.radiusX
+                        radius =
+                            arc.radius
 
-                        radiusY =
-                            arc.radiusY
+                        startAngle =
+                            arc.startAngle
 
-                        xAxis =
-                            arc.xAxisRotation
+                        endAngle =
+                            arc.endAngle
                     in
                         { arc
                             | x = fn x
                             , y = fn y
-                            , radiusX = fn radiusX
-                            , radiusY = fn radiusY
-                            , xAxisRotation = fn xAxis
+                            , radius = fn radius
+                            , startAngle = fn startAngle
+                            , endAngle = fn endAngle
                         }
 
-            ArcTo arc ->
-                ArcTo <|
+            AntiClockwiseArc arc ->
+                AntiClockwiseArc <|
                     let
                         x =
                             arc.x
@@ -471,21 +471,21 @@ mapPathMotion fn cmd =
                         y =
                             arc.y
 
-                        radiusX =
-                            arc.radiusX
+                        radius =
+                            arc.radius
 
-                        radiusY =
-                            arc.radiusY
+                        startAngle =
+                            arc.startAngle
 
-                        xAxis =
-                            arc.xAxisRotation
+                        endAngle =
+                            arc.endAngle
                     in
                         { arc
                             | x = fn x
                             , y = fn y
-                            , radiusX = fn radiusX
-                            , radiusY = fn radiusY
-                            , xAxisRotation = fn xAxis
+                            , radius = fn radius
+                            , startAngle = fn startAngle
+                            , endAngle = fn endAngle
                         }
 
             Close ->
@@ -1016,19 +1016,19 @@ isCmdDone cmd =
             SmoothTo coords ->
                 List.all (\( x, y ) -> motionDone x && motionDone y) coords
 
-            ArcCmd arc ->
+            ClockwiseArc arc ->
                 motionDone arc.x
                     && motionDone arc.y
-                    && motionDone arc.radiusX
-                    && motionDone arc.radiusY
-                    && motionDone arc.xAxisRotation
+                    && motionDone arc.radius
+                    && motionDone arc.startAngle
+                    && motionDone arc.endAngle
 
-            ArcTo arc ->
+            AntiClockwiseArc arc ->
                 motionDone arc.x
                     && motionDone arc.y
-                    && motionDone arc.radiusX
-                    && motionDone arc.radiusY
-                    && motionDone arc.xAxisRotation
+                    && motionDone arc.radius
+                    && motionDone arc.startAngle
+                    && motionDone arc.endAngle
 
             Close ->
                 True
@@ -1437,10 +1437,10 @@ setPathTarget cmd targetCmd =
                     _ ->
                         cmd
 
-            ArcCmd arc ->
+            ClockwiseArc arc ->
                 case targetCmd of
-                    ArcCmd target ->
-                        ArcCmd <|
+                    ClockwiseArc target ->
+                        ClockwiseArc <|
                             let
                                 x =
                                     arc.x
@@ -1448,30 +1448,30 @@ setPathTarget cmd targetCmd =
                                 y =
                                     arc.y
 
-                                radiusX =
-                                    arc.radiusX
+                                radius =
+                                    arc.radius
 
-                                radiusY =
-                                    arc.radiusY
+                                startAngle =
+                                    arc.startAngle
 
-                                xAxis =
-                                    arc.xAxisRotation
+                                endAngle =
+                                    arc.endAngle
                             in
                                 { arc
-                                    | x = (setMotionTarget x target.x)
-                                    , y = (setMotionTarget y target.y)
-                                    , radiusX = (setMotionTarget radiusX target.radiusX)
-                                    , radiusY = (setMotionTarget radiusY target.radiusY)
-                                    , xAxisRotation = (setMotionTarget xAxis target.xAxisRotation)
+                                    | x = setMotionTarget x target.x
+                                    , y = setMotionTarget y target.y
+                                    , radius = setMotionTarget radius target.radius
+                                    , startAngle = setMotionTarget startAngle target.startAngle
+                                    , endAngle = setMotionTarget endAngle target.endAngle
                                 }
 
                     _ ->
                         cmd
 
-            ArcTo arc ->
+            AntiClockwiseArc arc ->
                 case targetCmd of
-                    ArcTo target ->
-                        ArcTo <|
+                    AntiClockwiseArc target ->
+                        AntiClockwiseArc <|
                             let
                                 x =
                                     arc.x
@@ -1479,21 +1479,21 @@ setPathTarget cmd targetCmd =
                                 y =
                                     arc.y
 
-                                radiusX =
-                                    arc.radiusX
+                                radius =
+                                    arc.radius
 
-                                radiusY =
-                                    arc.radiusY
+                                startAngle =
+                                    arc.startAngle
 
-                                xAxis =
-                                    arc.xAxisRotation
+                                endAngle =
+                                    arc.endAngle
                             in
                                 { arc
-                                    | x = (setMotionTarget x target.x)
-                                    , y = (setMotionTarget y target.y)
-                                    , radiusX = (setMotionTarget radiusX target.radiusX)
-                                    , radiusY = (setMotionTarget radiusY target.radiusY)
-                                    , xAxisRotation = (setMotionTarget xAxis target.xAxisRotation)
+                                    | x = setMotionTarget x target.x
+                                    , y = setMotionTarget y target.y
+                                    , radius = setMotionTarget radius target.radius
+                                    , startAngle = setMotionTarget startAngle target.startAngle
+                                    , endAngle = setMotionTarget endAngle target.endAngle
                                 }
 
                     _ ->
@@ -1714,24 +1714,24 @@ stepPath dt cmd =
             SmoothTo coords ->
                 SmoothTo <| stepCoords coords
 
-            ArcCmd arc ->
-                ArcCmd <|
+            ClockwiseArc arc ->
+                ClockwiseArc <|
                     { arc
                         | x = stepInterpolation dt arc.x
                         , y = stepInterpolation dt arc.y
-                        , radiusX = stepInterpolation dt arc.radiusX
-                        , radiusY = stepInterpolation dt arc.radiusY
-                        , xAxisRotation = stepInterpolation dt arc.xAxisRotation
+                        , radius = stepInterpolation dt arc.radius
+                        , startAngle = stepInterpolation dt arc.startAngle
+                        , endAngle = stepInterpolation dt arc.endAngle
                     }
 
-            ArcTo arc ->
-                ArcTo <|
+            AntiClockwiseArc arc ->
+                AntiClockwiseArc <|
                     { arc
                         | x = stepInterpolation dt arc.x
                         , y = stepInterpolation dt arc.y
-                        , radiusX = stepInterpolation dt arc.radiusX
-                        , radiusY = stepInterpolation dt arc.radiusY
-                        , xAxisRotation = stepInterpolation dt arc.xAxisRotation
+                        , radius = stepInterpolation dt arc.radius
+                        , startAngle = stepInterpolation dt arc.startAngle
+                        , endAngle = stepInterpolation dt arc.endAngle
                     }
 
             Close ->
@@ -2640,62 +2640,34 @@ smoothQuadraticTo points =
     SmoothQuadraticTo <| pointsProp points
 
 
+type alias Arc =
+    { x : Float
+    , y : Float
+    , radius : Float
+    , startAngle : Float
+    , endAngle : Float
+    , clockwise : Bool
+    }
+
+
 arc : Arc -> PathCommand
 arc arc =
-    ArcCmd <| initArcMotion arc False False
-
-
-arcTo : Arc -> PathCommand
-arcTo arc =
-    ArcTo <| initArcMotion arc False False
-
-
-{-| The same as `arc` except it goes the long way around the ellipse created.
--}
-largeArc : Arc -> PathCommand
-largeArc arc =
-    ArcCmd <| initArcMotion arc True True
-
-
-{-| The same as `arcTo` except it goes the long way around the ellipse created.
--}
-largeArcTo : Arc -> PathCommand
-largeArcTo arc =
-    ArcTo <| initArcMotion arc True True
-
-
-{-| The same as `arc` except it goes the long way around the ellipse created.
--}
-sweptArc : Arc -> PathCommand
-sweptArc arc =
-    ArcCmd <| initArcMotion arc False True
-
-
-{-| The same as `arcTo` except it goes the long way around the ellipse created.
--}
-sweptArcTo : Arc -> PathCommand
-sweptArcTo arc =
-    ArcTo <| initArcMotion arc False True
-
-
-{-| Expands an arc.
-
-Equivalent to a large, unswept arc.
-https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
--}
-expandedArc : Arc -> PathCommand
-expandedArc arc =
-    ArcCmd <| initArcMotion arc True False
-
-
-{-| Expands an arcTo.
-
-Equivalent to a large, unswept arc.
-https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths
--}
-expandedArcTo : Arc -> PathCommand
-expandedArcTo arc =
-    ArcTo <| initArcMotion arc True False
+    if arc.clockwise then
+        ClockwiseArc
+            { x = initMotion arc.x ""
+            , y = initMotion arc.y ""
+            , radius = initMotion arc.radius ""
+            , startAngle = initMotion arc.startAngle ""
+            , endAngle = initMotion arc.endAngle ""
+            }
+    else
+        AntiClockwiseArc
+            { x = initMotion arc.x ""
+            , y = initMotion arc.y ""
+            , radius = initMotion arc.radius ""
+            , startAngle = initMotion arc.startAngle ""
+            , endAngle = initMotion arc.endAngle ""
+            }
 
 
 close : PathCommand
@@ -2775,40 +2747,17 @@ type PathCommand
     | SmoothQuadraticTo (List ( Motion, Motion ))
     | Smooth (List ( Motion, Motion ))
     | SmoothTo (List ( Motion, Motion ))
-    | ArcCmd ArcMotion
-    | ArcTo ArcMotion
+    | ClockwiseArc ArcMotion
+    | AntiClockwiseArc ArcMotion
     | Close
-
-
-type alias Arc =
-    { x : Float
-    , y : Float
-    , radiusX : Float
-    , radiusY : Float
-    , xAxisRotation : Float
-    }
 
 
 type alias ArcMotion =
     { x : Motion
     , y : Motion
-    , radiusX : Motion
-    , radiusY : Motion
-    , xAxisRotation : Motion
-    , sweep : Bool
-    , large : Bool
-    }
-
-
-initArcMotion : Arc -> Bool -> Bool -> ArcMotion
-initArcMotion arc large sweep =
-    { x = initMotion arc.x "px"
-    , y = initMotion arc.y "px"
-    , radiusX = initMotion arc.x "px"
-    , radiusY = initMotion arc.y "px"
-    , xAxisRotation = initMotion arc.xAxisRotation "deg"
-    , sweep = sweep
-    , large = large
+    , radius : Motion
+    , startAngle : Motion
+    , endAngle : Motion
     }
 
 
@@ -3307,53 +3256,41 @@ pathCmdValue cmd =
             SmoothTo points ->
                 "S " ++ renderPoints points
 
-            ArcCmd arc ->
+            ClockwiseArc arc ->
                 "a "
-                    ++ toString arc.radiusX.position
+                    ++ toString arc.radius.position
                     ++ ","
-                    ++ toString arc.radiusY.position
-                    ++ " "
-                    ++ toString arc.xAxisRotation.position
-                    ++ " "
-                    ++ (if arc.large then
+                    ++ toString arc.radius.position
+                    ++ " 0 "
+                    ++ (if arc.endAngle.position - arc.startAngle.position >= 180 then
                             "1"
                         else
                             "0"
                        )
                     ++ " "
-                    ++ (if arc.sweep then
-                            "1"
-                        else
-                            "0"
-                       )
+                    ++ "1"
                     ++ " "
-                    ++ toString arc.x.position
+                    ++ toString (arc.x.position + (arc.radius.position * (cos arc.endAngle.position)))
                     ++ ","
-                    ++ toString arc.y.position
+                    ++ toString (arc.y.position + (arc.radius.position * (sin arc.endAngle.position)))
 
-            ArcTo arc ->
-                "A "
-                    ++ toString arc.radiusX.position
+            AntiClockwiseArc arc ->
+                "a "
+                    ++ toString arc.radius.position
                     ++ ","
-                    ++ toString arc.radiusY.position
-                    ++ " "
-                    ++ toString arc.xAxisRotation.position
-                    ++ " "
-                    ++ (if arc.large then
+                    ++ toString arc.radius.position
+                    ++ " 0 "
+                    ++ (if arc.startAngle.position - arc.endAngle.position >= 180 then
                             "1"
                         else
                             "0"
                        )
                     ++ " "
-                    ++ (if arc.sweep then
-                            "1"
-                        else
-                            "0"
-                       )
+                    ++ "0"
                     ++ " "
-                    ++ toString arc.x.position
+                    ++ toString (arc.x.position + (arc.radius.position * (cos arc.endAngle.position)))
                     ++ ","
-                    ++ toString arc.y.position
+                    ++ toString (arc.y.position + (arc.radius.position * (sin arc.endAngle.position)))
 
             Close ->
                 "z"
