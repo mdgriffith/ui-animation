@@ -3257,40 +3257,98 @@ pathCmdValue cmd =
                 "S " ++ renderPoints points
 
             ClockwiseArc arc ->
-                "a "
-                    ++ toString arc.radius.position
-                    ++ ","
-                    ++ toString arc.radius.position
-                    ++ " 0 "
-                    ++ (if arc.endAngle.position - arc.startAngle.position >= 180 then
-                            "1"
-                        else
-                            "0"
-                       )
-                    ++ " "
-                    ++ "1"
-                    ++ " "
-                    ++ toString (arc.x.position + (arc.radius.position * (cos arc.endAngle.position)))
-                    ++ ","
-                    ++ toString (arc.y.position + (arc.radius.position * (sin arc.endAngle.position)))
+                let
+                    deltaAngle =
+                        arc.endAngle.position - arc.startAngle.position
+                in
+                    if deltaAngle > (360 - 1.0e-6) then
+                        let
+                            dx =
+                                arc.radius.position * cos (degrees arc.startAngle.position)
+
+                            dy =
+                                arc.radius.position * sin (degrees arc.startAngle.position)
+                        in
+                            "A "
+                                ++ toString arc.radius.position
+                                ++ ","
+                                ++ toString arc.radius.position
+                                ++ ",0,1,1,"
+                                ++ toString (arc.x.position - dx)
+                                ++ ","
+                                ++ toString (arc.y.position - dy)
+                                ++ " A "
+                                ++ toString arc.radius.position
+                                ++ ","
+                                ++ toString arc.radius.position
+                                ++ ",0,1,1,"
+                                ++ toString (arc.x.position + dx)
+                                ++ ","
+                                ++ toString (arc.y.position + dy)
+                    else
+                        "A "
+                            ++ toString arc.radius.position
+                            ++ ","
+                            ++ toString arc.radius.position
+                            ++ " 0 "
+                            ++ (if deltaAngle >= 180 then
+                                    "1"
+                                else
+                                    "0"
+                               )
+                            ++ " "
+                            ++ "1"
+                            ++ " "
+                            ++ toString (arc.x.position + (arc.radius.position * (cos <| degrees arc.endAngle.position)))
+                            ++ ","
+                            ++ toString (arc.y.position + (arc.radius.position * (sin <| degrees arc.endAngle.position)))
 
             AntiClockwiseArc arc ->
-                "a "
-                    ++ toString arc.radius.position
-                    ++ ","
-                    ++ toString arc.radius.position
-                    ++ " 0 "
-                    ++ (if arc.startAngle.position - arc.endAngle.position >= 180 then
-                            "1"
-                        else
-                            "0"
-                       )
-                    ++ " "
-                    ++ "0"
-                    ++ " "
-                    ++ toString (arc.x.position + (arc.radius.position * (cos arc.endAngle.position)))
-                    ++ ","
-                    ++ toString (arc.y.position + (arc.radius.position * (sin arc.endAngle.position)))
+                let
+                    deltaAngle =
+                        arc.endAngle.position - arc.startAngle.position
+                in
+                    if deltaAngle > (360 - 1.0e-6) then
+                        let
+                            dx =
+                                arc.radius.position * cos (degrees arc.startAngle.position)
+
+                            dy =
+                                arc.radius.position * sin (degrees arc.startAngle.position)
+                        in
+                            "A "
+                                ++ toString arc.radius.position
+                                ++ ","
+                                ++ toString arc.radius.position
+                                ++ ",0,1,0,"
+                                ++ toString (arc.x.position - dx)
+                                ++ ","
+                                ++ toString (arc.y.position - dy)
+                                ++ " A "
+                                ++ toString arc.radius.position
+                                ++ ","
+                                ++ toString arc.radius.position
+                                ++ ",0,1,1,"
+                                ++ toString (arc.x.position + dx)
+                                ++ ","
+                                ++ toString (arc.y.position + dy)
+                    else
+                        "A "
+                            ++ toString arc.radius.position
+                            ++ ","
+                            ++ toString arc.radius.position
+                            ++ " 0 "
+                            ++ (if arc.startAngle.position - arc.endAngle.position >= 180 then
+                                    "1"
+                                else
+                                    "0"
+                               )
+                            ++ " "
+                            ++ "0"
+                            ++ " "
+                            ++ toString (arc.x.position + (arc.radius.position * (cos arc.endAngle.position)))
+                            ++ ","
+                            ++ toString (arc.y.position + (arc.radius.position * (sin arc.endAngle.position)))
 
             Close ->
                 "z"
