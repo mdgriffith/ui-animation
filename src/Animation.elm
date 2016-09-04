@@ -233,11 +233,6 @@ set props =
     Set props
 
 
-send : msg -> Step msg
-send msg =
-    Send msg
-
-
 repeat : Int -> List (Step msg) -> Step msg
 repeat n steps =
     Repeat n steps
