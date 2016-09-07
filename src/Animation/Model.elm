@@ -49,6 +49,7 @@ type Interpolation
         , start : Time
         , ease : Float -> Float
         }
+    | AtSpeed { perSecond : Float }
 
 
 type alias Style =
@@ -611,6 +612,9 @@ isDone property =
 
                 Easing eased ->
                     eased.progress == 1
+
+                AtSpeed speed ->
+                    motion.position == motion.target
     in
         case property of
             ExactProperty _ _ ->
@@ -779,13 +783,8 @@ setTarget overrideInterp current newTarget =
                 case newMotion.interpolationOverride of
                     Nothing ->
                         case newMotion.interpolation of
-                            Spring _ ->
-                                { motion
-                                    | target = targetMotion.position
-                                }
-
                             Easing ease ->
-                                { motion
+                                { newMotion
                                     | target = targetMotion.position
                                     , interpolation =
                                         Easing
@@ -795,15 +794,15 @@ setTarget overrideInterp current newTarget =
                                             }
                                 }
 
-                    Just override ->
-                        case override of
-                            Spring _ ->
+                            _ ->
                                 { newMotion
                                     | target = targetMotion.position
                                 }
 
+                    Just override ->
+                        case override of
                             Easing ease ->
-                                { motion
+                                { newMotion
                                     | target = targetMotion.position
                                     , interpolationOverride =
                                         Just <|
@@ -812,6 +811,11 @@ setTarget overrideInterp current newTarget =
                                                     | start = motion.position
                                                     , progress = 0
                                                 }
+                                }
+
+                            _ ->
+                                { newMotion
+                                    | target = targetMotion.position
                                 }
     in
         case current of
@@ -927,9 +931,6 @@ setPathTarget cmd targetCmd =
     let
         setMotionTarget motion targetMotion =
             case motion.interpolation of
-                Spring _ ->
-                    { motion | target = targetMotion.position }
-
                 Easing ease ->
                     { motion
                         | target = targetMotion.position
@@ -937,6 +938,9 @@ setPathTarget cmd targetCmd =
                             Easing
                                 { ease | start = motion.position }
                     }
+
+                _ ->
+                    { motion | target = targetMotion.position }
     in
         case cmd of
             Move m1 m2 ->
@@ -1521,6 +1525,27 @@ stepInterpolation dtms motion =
                 motion.interpolationOverride
     in
         case interpolationToUse of
+            AtSpeed { perSecond } ->
+                let
+                    newPos =
+                        motion.position + (perSecond * (dtms / 1000))
+                in
+                    if motion.position < motion.target && newPos > motion.target then
+                        { motion
+                            | position = motion.target
+                            , velocity = 0.0
+                        }
+                    else if motion.position > motion.target && newPos < motion.position then
+                        { motion
+                            | position = motion.target
+                            , velocity = 0.0
+                        }
+                    else
+                        { motion
+                            | position = newPos
+                            , velocity = perSecond * 1000
+                        }
+
             Spring { stiffness, damping } ->
                 let
                     dt =

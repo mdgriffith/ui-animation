@@ -19,6 +19,7 @@ module Animation
         , styleWithEach
         , spring
         , easing
+        , speed
         , opacity
         , display
         , inline
@@ -111,7 +112,7 @@ module Animation
 @docs State, subscription, Msg, render
 
 # Creating an animation
-@docs  interrupt, queue, wait, to, toWith, toWithEach, set, repeat, loop, update, style, styleWith, styleWithEach, spring, easing
+@docs  interrupt, queue, wait, to, toWith, toWithEach, set, repeat, loop, update, style, styleWith, styleWithEach, spring, easing, speed
 
 # Animatable Properties
 @docs opacity, display, inline, inlineBlock, flex, inlineFlex, block, none, top, left, right, bottom, width, height, padding, paddingLeft, paddingRight, paddingTop, paddingBottom, margin, marginLeft, marginRight, marginTop, marginBottom, color, backgroundColor, borderColor, borderWidth, borderLeftWidth, borderRightWidth, borderTopWidth, borderBottomWidth, borderRadius, borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomRightRadius, shadow, textShadow, insetShadow, fill, stroke, strokeWidth, scale, scaleX, scaleY, scaleZ, rotate, rotateX, rotateY, rotateZ, translate, translateX, translateY, translateZ, points, path, move, moveTo, close, curve, curveTo, curve2, curve2To, filterUrl, blur, brightness, contrast, grayscale, greyscale, hueRotate, invert, saturate, sepia
@@ -173,6 +174,15 @@ easing { duration, ease } =
         }
 
 
+{-| Specify a speed to animate with.  To be used in conjunction with `StyleWith`, `StyleWithEach`, `toWith`, and `toWithEach`.
+
+-}
+speed : { perSecond : Float } -> Interpolation
+speed speed =
+    AtSpeed
+        speed
+
+
 setDefaultInterpolation : Property -> Property
 setDefaultInterpolation prop =
     let
@@ -224,8 +234,9 @@ defaultInterpolationByProperty prop =
                 spring
 
             AngleProperty _ _ ->
-                linear (2 * second)
+                speed { perSecond = pi }
 
+            --linear (2 * second)
             Points _ ->
                 spring
 
