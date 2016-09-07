@@ -557,14 +557,14 @@ type alias Length =
 
 
 type AngleUnit
-    = Deg
+    = Rad
 
 
 angleUnitName : AngleUnit -> String
 angleUnitName unit =
     case unit of
-        Deg ->
-            "deg"
+        Rad ->
+            "rad"
 
 
 {-| Similar weirdness, see `Length`
@@ -591,25 +591,25 @@ initMotion position unit =
 {-| -}
 deg : Float -> Angle
 deg a =
-    ( a, Deg )
+    ( (a / 360) * (2 * pi), Rad )
 
 
 {-| -}
 grad : Float -> Angle
 grad a =
-    ( (a / 400) * 360, Deg )
+    ( (a / 400) * (2 * pi), Rad )
 
 
 {-| -}
 rad : Float -> Angle
 rad a =
-    ( (a / (2 * pi)) * 360, Deg )
+    ( a, Rad )
 
 
 {-| -}
 turn : Float -> Angle
 turn a =
-    ( a * 360, Deg )
+    ( a * (2 * pi), Rad )
 
 
 {-| -}
@@ -1117,7 +1117,7 @@ scaleZ x =
 {-| -}
 rotate : Angle -> Property
 rotate ( x, angle ) =
-    AngleProperty "rotate" (initMotion x "deg")
+    AngleProperty "rotate" (initMotion x "rad")
 
 
 
@@ -1127,19 +1127,19 @@ rotate ( x, angle ) =
 {-| -}
 rotateX : Angle -> Property
 rotateX ( x, angle ) =
-    AngleProperty "rotateX" (initMotion x "deg")
+    AngleProperty "rotateX" (initMotion x "rad")
 
 
 {-| -}
 rotateY : Angle -> Property
 rotateY ( x, angle ) =
-    AngleProperty "rotateY" (initMotion x "deg")
+    AngleProperty "rotateY" (initMotion x "rad")
 
 
 {-| -}
 rotateZ : Angle -> Property
 rotateZ ( x, angle ) =
-    AngleProperty "rotateZ" (initMotion x "deg")
+    AngleProperty "rotateZ" (initMotion x "rad")
 
 
 
@@ -1149,13 +1149,13 @@ rotateZ ( x, angle ) =
 {-| -}
 skewX : Angle -> Property
 skewX ( x, angle ) =
-    AngleProperty "skewX" (initMotion x "deg")
+    AngleProperty "skewX" (initMotion x "rad")
 
 
 {-| -}
 skewY : Angle -> Property
 skewY ( x, angle ) =
-    AngleProperty "skewY" (initMotion x "deg")
+    AngleProperty "skewY" (initMotion x "rad")
 
 
 {-| -}
@@ -1452,7 +1452,13 @@ type alias Arc =
     }
 
 
-{-| Create an simple arc by specifying x, y, radius, startAngle, endAngle, and a boolean for clockwise.
+{-| Create an simple arc by specifying
+    * x
+    * y
+    * radius
+    * startAngle - specified in degrees
+    * endAngle - specified in degrees
+    * clockwise - boolean
 -}
 arc : Arc -> PathCommand
 arc arc =
@@ -1527,7 +1533,7 @@ greyscale x =
 -}
 hueRotate : Angle -> Property
 hueRotate ( x, angle ) =
-    AngleProperty "hue-rotate" (initMotion x "deg")
+    AngleProperty "hue-rotate" (initMotion x "rad")
 
 
 {-| Create a CSS invert filter, these stack with other filters.
