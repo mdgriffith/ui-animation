@@ -19,10 +19,10 @@ import Animation exposing (px)
 init : Model
 init =
     { style = 
-            Animation.style 
-                [ Animation.left (px 0.0)
-                , Animation.opacity 1.0
-                ]
+        Animation.style 
+            [ Animation.left (px 0.0)
+            , Animation.opacity 1.0
+            ]
     }
 ```
 
@@ -30,7 +30,7 @@ __Subscribe to Animation's subscription.__  This will animate using AnimationFra
 ```elm
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Animation.subscription model.style Animate
+    Animation.subscription [model.style] Animate
 
 ```
 
@@ -88,7 +88,6 @@ Here's generally how we compose animations.
     * `Animation.to` - Animate to a target style
     * `Animation.set` - Set a animation to a style immediately.
     * `Animation.wait (5 * second)` - wait for some amount of time
-    * `Animation.send YourMsg` - Send a custom `Msg` when this point is reached.  Very useful for doing `onFinished` style work, fire a msg when something fades out, etc.
     * `Animation.repeat x [..list of steps to repeat]` - Repeat a list of steps x times.
     * `Animation.loop [..list of steps to repeat]` - Loop a list of steps forever/until interrupted.
 

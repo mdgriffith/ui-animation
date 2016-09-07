@@ -8,6 +8,8 @@ module Animation
         , State
         , Msg
         , to
+        , toWith
+        , toWithEach
         , set
         , repeat
         , loop
@@ -77,12 +79,8 @@ module Animation
         , close
         , curve
         , curveTo
-        , quadratic
-        , quadraticTo
-        , smooth
-        , smoothTo
-        , smoothQuadratic
-        , smoothQuadraticTo
+        , curve2
+        , curve2To
         , filterUrl
         , blur
         , brightness
@@ -105,6 +103,26 @@ module Animation
         , exactly
         )
 
+{-| A library for animations.
+
+# Setting up an animation
+@docs State, subscription, Msg, render
+
+# Creating an animation
+@docs  interrupt, queue, wait, to, toWith, toWithEach, set, repeat, loop, update, style, styleWith, styleWithEach
+
+# Animatable Properties
+@docs opacity, display, inline, inlineBlock, flex, inlineFlex, block, none, top, left, right, bottom, width, height, padding, paddingLeft, paddingRight, paddingTop, paddingBottom, margin, marginLeft, marginRight, marginTop, marginBottom, color, backgroundColor, borderColor, borderWidth, borderLeftWidth, borderRightWidth, borderTopWidth, borderBottomWidth, borderRadius, borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomRightRadius, shadow, textShadow, insetShadow, fill, stroke, strokeWidth, scale, scaleX, scaleY, scaleZ, rotate, rotateX, rotateY, rotateZ, translate, translateX, translateY, translateZ, points, path, move, moveTo, close, curve, curveTo, curve2, curve2To, filterUrl, blur, brightness, contrast, grayscale, greyscale, hueRotate, invert, saturate, sepia
+
+# Units
+@docs px, percent, em, rem, turn, deg, grad, rad
+
+# Advanced
+@docs custom, exactly
+
+
+-}
+
 import Color exposing (Color)
 import Time exposing (Time, second)
 import AnimationFrame
@@ -116,10 +134,12 @@ import Task
 import Animation.Model exposing (..)
 
 
+{-| -}
 type alias State =
     Animation Never
 
 
+{-| -}
 type alias Msg =
     Tick
 
@@ -196,16 +216,23 @@ defaultInterpolationByProperty prop =
 -------------------
 
 
+{-| -}
 wait : Time -> Step msg
 wait till =
     Wait till
 
 
+{-| Animate to a set of target values, using the default interpolation.
+
+-}
 to : List Property -> Step msg
 to props =
     To props
 
 
+{-| Animate to a set of target values. Use a temporary interpolation instead of the default.
+The interpolation will revert back to default after this step.
+-}
 toWith : Interpolation -> List Property -> Step msg
 toWith interp props =
     ToWith <|
@@ -214,6 +241,9 @@ toWith interp props =
             props
 
 
+{-| Animate to a set of target values. Use a temporary interpolation for each property instead of the default.
+The interpolation will revert back to default after this step.
+-}
 toWithEach : List ( Interpolation, Property ) -> Step msg
 toWithEach interpProps =
     ToWith <|
@@ -228,16 +258,22 @@ toWithEach interpProps =
 --along : List (Float, Float) -> (Property, Property) -> Step msg
 
 
+{-| Immediately set properties to a value.
+-}
 set : List Property -> Step msg
 set props =
     Set props
 
 
+{-| Repeat a number of steps `n` times.
+-}
 repeat : Int -> List (Step msg) -> Step msg
 repeat n steps =
     Repeat n steps
 
 
+{-| Repeat a number of steps until interrupted.
+-}
 loop : List (Step msg) -> Step msg
 loop steps =
     Loop steps
@@ -346,14 +382,13 @@ subscription states msg =
         Sub.none
 
 
-{-| Used by Animation.Dict
-
--}
 isRunning : Animation msg -> Bool
 isRunning (Animation model) =
     model.running
 
 
+{-|
+-}
 debug : Animation msg -> List ( String, Motion, Time )
 debug (Animation model) =
     let
@@ -427,6 +462,8 @@ debug (Animation model) =
         List.concatMap getValueTuple model.style
 
 
+{-|
+-}
 update : Msg -> Animation msg -> Animation msg
 update tick animation =
     fst <| updateAnimation tick animation
@@ -551,96 +588,115 @@ initMotion position unit =
     }
 
 
+{-| -}
 deg : Float -> Angle
 deg a =
     ( a, Deg )
 
 
+{-| -}
 grad : Float -> Angle
 grad a =
     ( (a / 400) * 360, Deg )
 
 
+{-| -}
 rad : Float -> Angle
 rad a =
     ( (a / (2 * pi)) * 360, Deg )
 
 
+{-| -}
 turn : Float -> Angle
 turn a =
     ( a * 360, Deg )
 
 
+{-| -}
 px : Float -> Length
 px x =
     ( x, Px )
 
 
+{-| -}
 percent : Float -> Length
 percent x =
     ( x, Percent )
 
 
+{-| -}
 rem : Float -> Length
 rem x =
     ( x, Rem )
 
 
+{-| -}
 em : Float -> Length
 em x =
     ( x, Em )
 
 
+{-| -}
 ex : Float -> Length
 ex x =
     ( x, Ex )
 
 
+{-| -}
 ch : Float -> Length
 ch x =
     ( x, Ch )
 
 
+{-| -}
 vh : Float -> Length
 vh x =
     ( x, Vh )
 
 
+{-| -}
 vw : Float -> Length
 vw x =
     ( x, Vw )
 
 
+{-| -}
 vmin : Float -> Length
 vmin x =
     ( x, Vmin )
 
 
+{-| -}
 vmax : Float -> Length
 vmax x =
     ( x, Vmax )
 
 
+{-| -}
 mm : Float -> Length
 mm x =
     ( x, Mm )
 
 
+{-| -}
 cm : Float -> Length
 cm x =
     ( x, Cm )
 
 
+{-| -}
 inches : Float -> Length
 inches x =
     ( x, In )
 
 
+{-| -}
 pt : Float -> Length
 pt x =
     ( x, Pt )
 
 
+{-| -}
 pc : Float -> Length
 pc x =
     ( x, Pc )
@@ -683,16 +739,29 @@ colorProp name color =
             (initMotion alpha "")
 
 
+{-| Advanced: Animate a custom property by providing it's name, a float value, and the units it should have.
+
+-}
 custom : String -> Float -> String -> Property
 custom name value unit =
     Property name (initMotion value unit)
 
 
+{-| Advanced: Set a non-numerical to an exact value.  For example
+
+```
+Animation.set
+    [ Animation.exactly "border-style" "dashed"
+    ]
+```
+
+-}
 exactly : String -> String -> Property
 exactly name value =
     ExactProperty name value
 
 
+{-| -}
 opacity : Float -> Property
 opacity x =
     custom "opacity" x ""
@@ -711,256 +780,307 @@ type DisplayMode
     | ListItem
 
 
+{-| -}
 display : DisplayMode -> Property
 display mode =
     ExactProperty "display" (displayModeName mode)
 
 
+{-| -}
 none : DisplayMode
 none =
     None
 
 
+{-| -}
 inline : DisplayMode
 inline =
     Inline
 
 
+{-| -}
 inlineBlock : DisplayMode
 inlineBlock =
     InlineBlock
 
 
+{-| -}
 block : DisplayMode
 block =
     Block
 
 
+{-| -}
 flex : DisplayMode
 flex =
     Flex
 
 
+{-| -}
 inlineFlex : DisplayMode
 inlineFlex =
     InlineFlex
 
 
+{-| -}
 listItem : DisplayMode
 listItem =
     ListItem
 
 
+{-| -}
 height : Length -> Property
 height ( x, len ) =
     length "height" x (lengthUnitName len)
 
 
+{-| -}
 width : Length -> Property
 width ( x, len ) =
     length "width" x (lengthUnitName len)
 
 
+{-| -}
 left : Length -> Property
 left ( x, len ) =
     length "left" x (lengthUnitName len)
 
 
+{-| -}
 top : Length -> Property
 top ( x, len ) =
     length "top" x (lengthUnitName len)
 
 
+{-| -}
 right : Length -> Property
 right ( x, len ) =
     length "right" x (lengthUnitName len)
 
 
+{-| -}
 bottom : Length -> Property
 bottom ( x, len ) =
     length "bottom" x (lengthUnitName len)
 
 
+{-| -}
 maxHeight : Length -> Property
 maxHeight ( x, len ) =
     length "max-height" x (lengthUnitName len)
 
 
+{-| -}
 maxWidth : Length -> Property
 maxWidth ( x, len ) =
     length "max-width" x (lengthUnitName len)
 
 
+{-| -}
 minHeight : Length -> Property
 minHeight ( x, len ) =
     length "min-height" x (lengthUnitName len)
 
 
+{-| -}
 minWidth : Length -> Property
 minWidth ( x, len ) =
     length "min-width" x (lengthUnitName len)
 
 
+{-| -}
 padding : Length -> Property
 padding ( x, len ) =
     length "padding" x (lengthUnitName len)
 
 
+{-| -}
 paddingLeft : Length -> Property
 paddingLeft ( x, len ) =
     length "padding-left" x (lengthUnitName len)
 
 
+{-| -}
 paddingRight : Length -> Property
 paddingRight ( x, len ) =
     length "padding-right" x (lengthUnitName len)
 
 
+{-| -}
 paddingTop : Length -> Property
 paddingTop ( x, len ) =
     length "padding-top" x (lengthUnitName len)
 
 
+{-| -}
 paddingBottom : Length -> Property
 paddingBottom ( x, len ) =
     length "padding-bottom" x (lengthUnitName len)
 
 
+{-| -}
 margin : Length -> Property
 margin ( x, len ) =
     length "margin" x (lengthUnitName len)
 
 
+{-| -}
 marginLeft : Length -> Property
 marginLeft ( x, len ) =
     length "margin-left" x (lengthUnitName len)
 
 
+{-| -}
 marginRight : Length -> Property
 marginRight ( x, len ) =
     length "margin-right" x (lengthUnitName len)
 
 
+{-| -}
 marginTop : Length -> Property
 marginTop ( x, len ) =
     length "margin-top" x (lengthUnitName len)
 
 
+{-| -}
 marginBottom : Length -> Property
 marginBottom ( x, len ) =
     length "margin-bottom" x (lengthUnitName len)
 
 
+{-| -}
 borderWidth : Length -> Property
 borderWidth ( x, len ) =
     length "border-width" x (lengthUnitName len)
 
 
+{-| -}
 borderLeftWidth : Length -> Property
 borderLeftWidth ( x, len ) =
     length "border-left-width" x (lengthUnitName len)
 
 
+{-| -}
 borderRightWidth : Length -> Property
 borderRightWidth ( x, len ) =
     length "border-right-width" x (lengthUnitName len)
 
 
+{-| -}
 borderTopWidth : Length -> Property
 borderTopWidth ( x, len ) =
     length "border-top-width" x (lengthUnitName len)
 
 
+{-| -}
 borderBottomWidth : Length -> Property
 borderBottomWidth ( x, len ) =
     length "border-bottom-width" x (lengthUnitName len)
 
 
+{-| -}
 borderRadius : Length -> Property
 borderRadius ( x, len ) =
     length "border-radius" x (lengthUnitName len)
 
 
+{-| -}
 borderTopLeftRadius : Length -> Property
 borderTopLeftRadius ( x, len ) =
     length "border-top-left-radius" x (lengthUnitName len)
 
 
+{-| -}
 borderTopRightRadius : Length -> Property
 borderTopRightRadius ( x, len ) =
     length "border-top-right-radius" x (lengthUnitName len)
 
 
+{-| -}
 borderBottomLeftRadius : Length -> Property
 borderBottomLeftRadius ( x, len ) =
     length "border-bottom-left-radius" x (lengthUnitName len)
 
 
+{-| -}
 borderBottomRightRadius : Length -> Property
 borderBottomRightRadius ( x, len ) =
     length "border-bottom-right-radius" x (lengthUnitName len)
 
 
+{-| -}
 letterSpacing : Length -> Property
 letterSpacing ( x, len ) =
     length "letter-spacing" x (lengthUnitName len)
 
 
+{-| -}
 lineHeight : Length -> Property
 lineHeight ( x, len ) =
     length "line-height" x (lengthUnitName len)
 
 
+{-| -}
 backgroundPosition : Length -> Length -> Property
 backgroundPosition ( x, len1 ) ( y, len2 ) =
     length2 "background-position" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 )
 
 
+{-| -}
 color : Color -> Property
 color c =
     colorProp "color" c
 
 
+{-| -}
 backgroundColor : Color -> Property
 backgroundColor c =
     colorProp "background-color" c
 
 
+{-| -}
 borderColor : Color -> Property
 borderColor c =
     colorProp "border-color" c
 
 
+{-| -}
 transformOrigin : Length -> Length -> Length -> Property
 transformOrigin ( x, len1 ) ( y, len2 ) ( z, len3 ) =
     length3 "transform-origin" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 ) ( z, lengthUnitName len3 )
 
 
+{-| -}
 translate : Length -> Length -> Property
 translate ( x, len1 ) ( y, len2 ) =
     length2 "translate" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 )
 
 
+{-| -}
 translate3d : Length -> Length -> Length -> Property
 translate3d ( x, len1 ) ( y, len2 ) ( z, len3 ) =
     length3 "translate3d" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 ) ( z, lengthUnitName len3 )
 
 
+{-| -}
 translateX : Length -> Property
 translateX ( x, len ) =
     length "translateX" x (lengthUnitName len)
 
 
+{-| -}
 translateY : Length -> Property
 translateY ( x, len ) =
     length "translateY" x (lengthUnitName len)
 
 
+{-| -}
 translateZ : Length -> Property
 translateZ ( x, len ) =
     length "translateZ" x (lengthUnitName len)
 
 
+{-| -}
 scale : Float -> Property
 scale x =
     custom "scale" x ""
@@ -972,16 +1092,19 @@ scale x =
 --     length3 "scale3d" x y z
 
 
+{-| -}
 scaleX : Float -> Property
 scaleX x =
     custom "scaleX" x ""
 
 
+{-| -}
 scaleY : Float -> Property
 scaleY x =
     custom "scaleY" x ""
 
 
+{-| -}
 scaleZ : Float -> Property
 scaleZ x =
     custom "scaleZ" x ""
@@ -991,6 +1114,7 @@ scaleZ x =
 -- Internally, angles are always in degrees which is why we throw away the angleUnit here.  It was already checked.
 
 
+{-| -}
 rotate : Angle -> Property
 rotate ( x, angle ) =
     AngleProperty "rotate" (initMotion x "deg")
@@ -1000,16 +1124,19 @@ rotate ( x, angle ) =
 -- rotate3d : Float -> Float -> Float -> Angle -> Property
 
 
+{-| -}
 rotateX : Angle -> Property
 rotateX ( x, angle ) =
     AngleProperty "rotateX" (initMotion x "deg")
 
 
+{-| -}
 rotateY : Angle -> Property
 rotateY ( x, angle ) =
     AngleProperty "rotateY" (initMotion x "deg")
 
 
+{-| -}
 rotateZ : Angle -> Property
 rotateZ ( x, angle ) =
     AngleProperty "rotateZ" (initMotion x "deg")
@@ -1019,16 +1146,19 @@ rotateZ ( x, angle ) =
 -- skew : Angle -> Angle -> Property
 
 
+{-| -}
 skewX : Angle -> Property
 skewX ( x, angle ) =
     AngleProperty "skewX" (initMotion x "deg")
 
 
+{-| -}
 skewY : Angle -> Property
 skewY ( x, angle ) =
     AngleProperty "skewY" (initMotion x "deg")
 
 
+{-| -}
 perspective : Float -> Property
 perspective x =
     custom "perspective" x ""
@@ -1043,6 +1173,7 @@ type alias Shadow =
     }
 
 
+{-| -}
 textShadow : Shadow -> Property
 textShadow shade =
     let
@@ -1063,6 +1194,7 @@ textShadow shade =
             }
 
 
+{-| -}
 shadow : Shadow -> Property
 shadow shade =
     let
@@ -1083,6 +1215,7 @@ shadow shade =
             }
 
 
+{-| -}
 insetShadow : Shadow -> Property
 insetShadow shade =
     let
@@ -1107,124 +1240,206 @@ insetShadow shade =
 -- SVG properties
 
 
+{-| -}
 x : Float -> Property
 x x =
     custom "x" x ""
 
 
+{-| -}
 y : Float -> Property
 y y =
     custom "y" y ""
 
 
+{-| -}
 cx : Float -> Property
 cx x =
     custom "cx" x ""
 
 
+{-| -}
 cy : Float -> Property
 cy y =
     custom "cy" y ""
 
 
+{-| -}
 radius : Float -> Property
 radius r =
     custom "r" r ""
 
 
+{-| -}
 radiusX : Float -> Property
 radiusX rx =
     custom "rx" rx ""
 
 
+{-| -}
 radiusY : Float -> Property
 radiusY ry =
     custom "ry" ry ""
 
 
+{-| -}
 path : List (PathCommand) -> Property
 path commands =
     Path commands
 
 
+{-| -}
 move : Float -> Float -> PathCommand
 move x y =
     Move (initMotion x "") (initMotion y "")
 
 
+{-| -}
 moveTo : Float -> Float -> PathCommand
 moveTo x y =
     MoveTo (initMotion x "") (initMotion y "")
 
 
+{-| -}
 line : Float -> Float -> PathCommand
 line x y =
     Line (initMotion x "") (initMotion y "")
 
 
+{-| -}
 lineTo : Float -> Float -> PathCommand
 lineTo x y =
     LineTo (initMotion x "") (initMotion y "")
 
 
+{-| -}
 horizontal : Float -> PathCommand
 horizontal x =
     Horizontal (initMotion x "")
 
 
+{-| -}
 horizontalTo : Float -> PathCommand
 horizontalTo x =
     HorizontalTo (initMotion x "")
 
 
+{-| -}
 vertical : Float -> PathCommand
 vertical x =
     Vertical (initMotion x "")
 
 
+{-| -}
 verticalTo : Float -> PathCommand
 verticalTo x =
     VerticalTo (initMotion x "")
 
 
-curve : List ( Float, Float ) -> PathCommand
-curve points =
-    Curve <| pointsProp points
+type alias CubicCurve =
+    { control1 : ( Float, Float )
+    , control2 : ( Float, Float )
+    , point : ( Float, Float )
+    }
 
 
-curveTo : List ( Float, Float ) -> PathCommand
-curveTo points =
-    CurveTo <| pointsProp points
+type alias QuadraticCurve =
+    { control : ( Float, Float )
+    , point : ( Float, Float )
+    }
 
 
-quadratic : List ( Float, Float ) -> PathCommand
-quadratic points =
-    Quadratic <| pointsProp points
+{-| Create a relative Curve with 2 control points and a target point.
+This is a Cubic Curve in the svg spec.
+
+-}
+curve2 : CubicCurve -> PathCommand
+curve2 { control1, control2, point } =
+    Curve
+        { control1 =
+            ( initMotion (fst control1) ""
+            , initMotion (snd control1) ""
+            )
+        , control2 =
+            ( initMotion (fst control2) ""
+            , initMotion (snd control2) ""
+            )
+        , point =
+            ( initMotion (fst point) ""
+            , initMotion (snd point) ""
+            )
+        }
 
 
-quadraticTo : List ( Float, Float ) -> PathCommand
-quadraticTo points =
-    QuadraticTo <| pointsProp points
+{-| Create an absolute Curve with 2 control points and a target point.
+This is a Cubic Curve in the svg spec.
+
+-}
+curve2To : CubicCurve -> PathCommand
+curve2To { control1, control2, point } =
+    CurveTo
+        { control1 =
+            ( initMotion (fst control1) ""
+            , initMotion (snd control1) ""
+            )
+        , control2 =
+            ( initMotion (fst control2) ""
+            , initMotion (snd control2) ""
+            )
+        , point =
+            ( initMotion (fst point) ""
+            , initMotion (snd point) ""
+            )
+        }
 
 
-smooth : List ( Float, Float ) -> PathCommand
-smooth points =
-    Smooth <| pointsProp points
+{-| Create a relative curve with 1 control point and a target point.
+This is a Quadratic curve in teh svg spec.
+-}
+curve : QuadraticCurve -> PathCommand
+curve { control, point } =
+    Quadratic
+        { control =
+            ( initMotion (fst control) ""
+            , initMotion (snd control) ""
+            )
+        , point =
+            ( initMotion (fst point) ""
+            , initMotion (snd point) ""
+            )
+        }
 
 
-smoothTo : List ( Float, Float ) -> PathCommand
-smoothTo points =
-    SmoothTo <| pointsProp points
+{-| Create an absolute curve with 1 control point and a target point.
+This is a Quadratic curve in teh svg spec.
+-}
+curveTo : QuadraticCurve -> PathCommand
+curveTo { control, point } =
+    QuadraticTo
+        { control =
+            ( initMotion (fst control) ""
+            , initMotion (snd control) ""
+            )
+        , point =
+            ( initMotion (fst point) ""
+            , initMotion (snd point) ""
+            )
+        }
 
 
-smoothQuadratic : List ( Float, Float ) -> PathCommand
-smoothQuadratic points =
-    SmoothQuadratic <| pointsProp points
 
-
-smoothQuadraticTo : List ( Float, Float ) -> PathCommand
-smoothQuadraticTo points =
-    SmoothQuadraticTo <| pointsProp points
+--continueCurve : QuadraticCurve -> PathCommand
+--continueCurve points =
+--    Smooth <| pointsProp points
+--continueCurveTo : QuadraticCurve -> PathCommand
+--continueCurveTo points =
+--    SmoothTo <| pointsProp points
+--continueQuadratic : List ( Float, Float ) -> PathCommand
+--continueQuadratic points =
+--    SmoothQuadratic <| pointsProp points
+--continueQuadraticTo : List ( Float, Float ) -> PathCommand
+--continueQuadraticTo points =
+--    SmoothQuadraticTo <| pointsProp points
 
 
 type alias Arc =
@@ -1237,6 +1452,8 @@ type alias Arc =
     }
 
 
+{-| Create an simple arc by specifying x, y, radius, startAngle, endAngle, and a boolean for clockwise.
+-}
 arc : Arc -> PathCommand
 arc arc =
     if arc.clockwise then
@@ -1257,56 +1474,78 @@ arc arc =
             }
 
 
+{-| Close a Path
+-}
 close : PathCommand
 close =
     Close
 
 
+{-| Create a CSS filter-url
+-}
 filterUrl : String -> Property
 filterUrl url =
     exactly "filter-url" url
 
 
+{-| Create a CSS blur filter, these stack with other filters.
+-}
 blur : Length -> Property
 blur ( x, len ) =
     length "blur" x (lengthUnitName len)
 
 
+{-| Create a CSS brightness filter, these stack with other filters.
+-}
 brightness : Float -> Property
 brightness x =
     custom "brightness" x "%"
 
 
+{-| Create a CSS contrast filter, these stack with other filters.
+-}
 contrast : Float -> Property
 contrast x =
     custom "contrast" x "%"
 
 
+{-| Create a CSS grayscale filter, these stack with other filters.
+-}
 grayscale : Float -> Property
 grayscale x =
     custom "grayscale" x "%"
 
 
+{-| Create a CSS grayscale filter, these stack with other filters.  This is a spelling adjusment.
+-}
 greyscale : Float -> Property
 greyscale x =
     grayscale x
 
 
+{-| Create a CSS hue-rotation filter, these stack with other filters.
+-}
 hueRotate : Angle -> Property
 hueRotate ( x, angle ) =
     AngleProperty "hue-rotate" (initMotion x "deg")
 
 
+{-| Create a CSS invert filter, these stack with other filters.
+-}
 invert : Float -> Property
 invert x =
     custom "invert" x "%"
 
 
+{-| Create a CSS saturate filter, these stack with other filters.
+-}
 saturate : Float -> Property
 saturate x =
     custom "saturate" x "%"
 
 
+{-| Create a CSS sepia filter, these stack with other filters.
+-}
 sepia : Float -> Property
 sepia x =
     custom "sepia" x "%"
@@ -1326,16 +1565,19 @@ points pnts =
             alignStartingPoint pnts
 
 
+{-| -}
 fill : Color -> Property
 fill color =
     colorProp "fill" color
 
 
+{-| -}
 stroke : Color -> Property
 stroke color =
     colorProp "stroke" color
 
 
+{-| -}
 strokeWidth : Float -> Property
 strokeWidth x =
     length "stroke-width" x ""
@@ -1722,17 +1964,57 @@ pathCmdValue cmd =
             VerticalTo a ->
                 "V " ++ toString a.position
 
-            Curve points ->
-                "c " ++ renderPoints points
+            Curve { control1, control2, point } ->
+                "c "
+                    ++ (toString <| fst control1)
+                    ++ " "
+                    ++ (toString <| fst control1)
+                    ++ ", "
+                    ++ (toString <| fst control2)
+                    ++ " "
+                    ++ (toString <| fst control2)
+                    ++ ", "
+                    ++ (toString <| fst point)
+                    ++ " "
+                    ++ (toString <| fst point)
+                    ++ " "
 
-            CurveTo points ->
-                "C " ++ renderPoints points
+            CurveTo { control1, control2, point } ->
+                "C "
+                    ++ (toString <| fst control1)
+                    ++ " "
+                    ++ (toString <| fst control1)
+                    ++ ", "
+                    ++ (toString <| fst control2)
+                    ++ " "
+                    ++ (toString <| fst control2)
+                    ++ ", "
+                    ++ (toString <| fst point)
+                    ++ " "
+                    ++ (toString <| fst point)
+                    ++ " "
 
-            Quadratic points ->
-                "q " ++ renderPoints points
+            Quadratic { control, point } ->
+                "q "
+                    ++ (toString <| fst control)
+                    ++ " "
+                    ++ (toString <| fst control)
+                    ++ ", "
+                    ++ (toString <| fst point)
+                    ++ " "
+                    ++ (toString <| fst point)
+                    ++ " "
 
-            QuadraticTo points ->
-                "Q " ++ renderPoints points
+            QuadraticTo { control, point } ->
+                "Q "
+                    ++ (toString <| fst control)
+                    ++ " "
+                    ++ (toString <| fst control)
+                    ++ ", "
+                    ++ (toString <| fst point)
+                    ++ " "
+                    ++ (toString <| fst point)
+                    ++ " "
 
             SmoothQuadratic points ->
                 "t " ++ renderPoints points

@@ -105,10 +105,10 @@ type PathCommand
     | HorizontalTo Motion
     | Vertical Motion
     | VerticalTo Motion
-    | Curve (List ( Motion, Motion ))
-    | CurveTo (List ( Motion, Motion ))
-    | Quadratic (List ( Motion, Motion ))
-    | QuadraticTo (List ( Motion, Motion ))
+    | Curve CubicCurveMotion
+    | CurveTo CubicCurveMotion
+    | Quadratic QuadraticCurveMotion
+    | QuadraticTo QuadraticCurveMotion
     | SmoothQuadratic (List ( Motion, Motion ))
     | SmoothQuadraticTo (List ( Motion, Motion ))
     | Smooth (List ( Motion, Motion ))
@@ -116,6 +116,19 @@ type PathCommand
     | ClockwiseArc ArcMotion
     | AntiClockwiseArc ArcMotion
     | Close
+
+
+type alias CubicCurveMotion =
+    { control1 : ( Motion, Motion )
+    , control2 : ( Motion, Motion )
+    , point : ( Motion, Motion )
+    }
+
+
+type alias QuadraticCurveMotion =
+    { control : ( Motion, Motion )
+    , point : ( Motion, Motion )
+    }
 
 
 type alias ArcMotion =
@@ -249,7 +262,7 @@ mapToMotion fn prop =
 mapPathMotion : (Motion -> Motion) -> PathCommand -> PathCommand
 mapPathMotion fn cmd =
     let
-        setCoordInterp coords =
+        mapCoords coords =
             List.map
                 (\( x, y ) ->
                     ( fn x
@@ -295,29 +308,73 @@ mapPathMotion fn cmd =
                 VerticalTo
                     (fn motion)
 
-            Curve coords ->
-                Curve <| setCoordInterp coords
+            Curve { control1, control2, point } ->
+                Curve
+                    { control1 =
+                        ( fn (fst control1)
+                        , fn (snd control1)
+                        )
+                    , control2 =
+                        ( fn (fst control2)
+                        , fn (snd control2)
+                        )
+                    , point =
+                        ( fn (fst point)
+                        , fn (snd point)
+                        )
+                    }
 
-            CurveTo coords ->
-                CurveTo <| setCoordInterp coords
+            CurveTo { control1, control2, point } ->
+                CurveTo
+                    { control1 =
+                        ( fn (fst control1)
+                        , fn (snd control1)
+                        )
+                    , control2 =
+                        ( fn (fst control2)
+                        , fn (snd control2)
+                        )
+                    , point =
+                        ( fn (fst point)
+                        , fn (snd point)
+                        )
+                    }
 
-            Quadratic coords ->
-                Quadratic <| setCoordInterp coords
+            Quadratic { control, point } ->
+                Quadratic
+                    { control =
+                        ( fn (fst control)
+                        , fn (snd control)
+                        )
+                    , point =
+                        ( fn (fst point)
+                        , fn (snd point)
+                        )
+                    }
 
-            QuadraticTo coords ->
-                QuadraticTo <| setCoordInterp coords
+            QuadraticTo { control, point } ->
+                QuadraticTo
+                    { control =
+                        ( fn (fst control)
+                        , fn (snd control)
+                        )
+                    , point =
+                        ( fn (fst point)
+                        , fn (snd point)
+                        )
+                    }
 
             SmoothQuadratic coords ->
-                SmoothQuadratic <| setCoordInterp coords
+                SmoothQuadratic <| mapCoords coords
 
             SmoothQuadraticTo coords ->
-                SmoothQuadraticTo <| setCoordInterp coords
+                SmoothQuadraticTo <| mapCoords coords
 
             Smooth coords ->
-                Smooth <| setCoordInterp coords
+                Smooth <| mapCoords coords
 
             SmoothTo coords ->
-                SmoothTo <| setCoordInterp coords
+                SmoothTo <| mapCoords coords
 
             ClockwiseArc arc ->
                 ClockwiseArc <|
@@ -625,17 +682,33 @@ isCmdDone cmd =
             VerticalTo motion ->
                 motionDone motion
 
-            Curve coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+            Curve { control1, control2, point } ->
+                (motionDone <| fst control1)
+                    && (motionDone <| snd control1)
+                    && (motionDone <| fst control2)
+                    && (motionDone <| snd control2)
+                    && (motionDone <| fst point)
+                    && (motionDone <| snd point)
 
-            CurveTo coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+            CurveTo { control1, control2, point } ->
+                (motionDone <| fst control1)
+                    && (motionDone <| snd control1)
+                    && (motionDone <| fst control2)
+                    && (motionDone <| snd control2)
+                    && (motionDone <| fst point)
+                    && (motionDone <| snd point)
 
-            Quadratic coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+            Quadratic { control, point } ->
+                (motionDone <| fst control)
+                    && (motionDone <| snd control)
+                    && (motionDone <| fst point)
+                    && (motionDone <| snd point)
 
-            QuadraticTo coords ->
-                List.all (\( x, y ) -> motionDone x && motionDone y) coords
+            QuadraticTo { control, point } ->
+                (motionDone <| fst control)
+                    && (motionDone <| snd control)
+                    && (motionDone <| fst point)
+                    && (motionDone <| snd point)
 
             SmoothQuadratic coords ->
                 List.all (\( x, y ) -> motionDone x && motionDone y) coords
@@ -942,66 +1015,78 @@ setPathTarget cmd targetCmd =
                     _ ->
                         cmd
 
-            Curve coords ->
+            Curve points ->
                 case targetCmd of
-                    Curve targetCoords ->
-                        Curve <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
+                    Curve targets ->
+                        Curve
+                            { control1 =
+                                ( setMotionTarget (fst points.control1) (fst targets.control1)
+                                , setMotionTarget (snd points.control1) (snd targets.control1)
                                 )
-                                coords
-                                targetCoords
+                            , control2 =
+                                ( setMotionTarget (fst points.control2) (fst targets.control2)
+                                , setMotionTarget (snd points.control2) (snd targets.control2)
+                                )
+                            , point =
+                                ( setMotionTarget (fst points.point) (fst targets.point)
+                                , setMotionTarget (snd points.point) (snd targets.point)
+                                )
+                            }
 
                     _ ->
                         cmd
 
-            CurveTo coords ->
+            CurveTo points ->
                 case targetCmd of
-                    CurveTo targetCoords ->
-                        CurveTo <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
+                    CurveTo targets ->
+                        CurveTo
+                            { control1 =
+                                ( setMotionTarget (fst points.control1) (fst targets.control1)
+                                , setMotionTarget (snd points.control1) (snd targets.control1)
                                 )
-                                coords
-                                targetCoords
+                            , control2 =
+                                ( setMotionTarget (fst points.control2) (fst targets.control2)
+                                , setMotionTarget (snd points.control2) (snd targets.control2)
+                                )
+                            , point =
+                                ( setMotionTarget (fst points.point) (fst targets.point)
+                                , setMotionTarget (snd points.point) (snd targets.point)
+                                )
+                            }
 
                     _ ->
                         cmd
 
-            Quadratic coords ->
+            Quadratic points ->
                 case targetCmd of
-                    Quadratic targetCoords ->
-                        Quadratic <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
+                    Quadratic targets ->
+                        Quadratic
+                            { control =
+                                ( setMotionTarget (fst points.control) (fst targets.control)
+                                , setMotionTarget (snd points.control) (snd targets.control)
                                 )
-                                coords
-                                targetCoords
+                            , point =
+                                ( setMotionTarget (fst points.point) (fst targets.point)
+                                , setMotionTarget (snd points.point) (snd targets.point)
+                                )
+                            }
 
                     _ ->
                         cmd
 
-            QuadraticTo coords ->
+            QuadraticTo points ->
                 case targetCmd of
-                    QuadraticTo targetCoords ->
-                        QuadraticTo <|
-                            List.map2
-                                (\( x1, y1 ) ( x2, y2 ) ->
-                                    ( (setMotionTarget x1 x2)
-                                    , (setMotionTarget y1 y2)
-                                    )
+                    QuadraticTo targets ->
+                        QuadraticTo
+                            { control =
+                                ( setMotionTarget (fst points.control) (fst targets.control)
+                                , setMotionTarget (snd points.control) (snd targets.control)
                                 )
-                                coords
-                                targetCoords
+                            , point =
+                                ( setMotionTarget (fst points.point) (fst targets.point)
+                                , setMotionTarget (snd points.point) (snd targets.point)
+                                )
+                            }
 
                     _ ->
                         cmd
@@ -1323,17 +1408,61 @@ stepPath dt cmd =
                 VerticalTo
                     (stepInterpolation dt motion)
 
-            Curve coords ->
-                Curve <| stepCoords coords
+            Curve { control1, control2, point } ->
+                Curve
+                    { control1 =
+                        ( stepInterpolation dt (fst control1)
+                        , stepInterpolation dt (snd control1)
+                        )
+                    , control2 =
+                        ( stepInterpolation dt (fst control2)
+                        , stepInterpolation dt (snd control2)
+                        )
+                    , point =
+                        ( stepInterpolation dt (fst point)
+                        , stepInterpolation dt (snd point)
+                        )
+                    }
 
-            CurveTo coords ->
-                CurveTo <| stepCoords coords
+            CurveTo { control1, control2, point } ->
+                CurveTo
+                    { control1 =
+                        ( stepInterpolation dt (fst control1)
+                        , stepInterpolation dt (snd control1)
+                        )
+                    , control2 =
+                        ( stepInterpolation dt (fst control2)
+                        , stepInterpolation dt (snd control2)
+                        )
+                    , point =
+                        ( stepInterpolation dt (fst point)
+                        , stepInterpolation dt (snd point)
+                        )
+                    }
 
-            Quadratic coords ->
-                Quadratic <| stepCoords coords
+            Quadratic { control, point } ->
+                Quadratic
+                    { control =
+                        ( stepInterpolation dt (fst control)
+                        , stepInterpolation dt (snd control)
+                        )
+                    , point =
+                        ( stepInterpolation dt (fst point)
+                        , stepInterpolation dt (snd point)
+                        )
+                    }
 
-            QuadraticTo coords ->
-                QuadraticTo <| stepCoords coords
+            QuadraticTo { control, point } ->
+                QuadraticTo
+                    { control =
+                        ( stepInterpolation dt (fst control)
+                        , stepInterpolation dt (snd control)
+                        )
+                    , point =
+                        ( stepInterpolation dt (fst point)
+                        , stepInterpolation dt (snd point)
+                        )
+                    }
 
             SmoothQuadratic coords ->
                 SmoothQuadratic <| stepCoords coords
