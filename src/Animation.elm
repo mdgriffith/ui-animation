@@ -17,6 +17,8 @@ module Animation
         , style
         , styleWith
         , styleWithEach
+        , spring
+        , easing
         , opacity
         , display
         , inline
@@ -109,7 +111,7 @@ module Animation
 @docs State, subscription, Msg, render
 
 # Creating an animation
-@docs  interrupt, queue, wait, to, toWith, toWithEach, set, repeat, loop, update, style, styleWith, styleWithEach
+@docs  interrupt, queue, wait, to, toWith, toWithEach, set, repeat, loop, update, style, styleWith, styleWithEach, spring, easing
 
 # Animatable Properties
 @docs opacity, display, inline, inlineBlock, flex, inlineFlex, block, none, top, left, right, bottom, width, height, padding, paddingLeft, paddingRight, paddingTop, paddingBottom, margin, marginLeft, marginRight, marginTop, marginBottom, color, backgroundColor, borderColor, borderWidth, borderLeftWidth, borderRightWidth, borderTopWidth, borderBottomWidth, borderRadius, borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomRightRadius, shadow, textShadow, insetShadow, fill, stroke, strokeWidth, scale, scaleX, scaleY, scaleZ, rotate, rotateX, rotateY, rotateZ, translate, translateX, translateY, translateZ, points, path, move, moveTo, close, curve, curveTo, curve2, curve2To, filterUrl, blur, brightness, contrast, grayscale, greyscale, hueRotate, invert, saturate, sepia
@@ -148,6 +150,27 @@ type alias Msg =
 ---------------------------
 -- Setting Defaults
 --------------------------
+
+
+{-| Specify a custom Spring to animate with.  To be used in conjunction with `StyleWith`, `StyleWithEach`, `toWith`, and `toWithEach`.
+
+-}
+spring : { stiffness : Float, damping : Float } -> Interpolation
+spring settings =
+    Spring settings
+
+
+{-| Specify a custom Easing to animate with.  To be used in conjunction with `StyleWith`, `StyleWithEach`, `toWith`, and `toWithEach`.
+
+-}
+easing : { duration : Time, ease : Float -> Float } -> Interpolation
+easing { duration, ease } =
+    Easing
+        { progress = 1
+        , duration = duration
+        , start = 0
+        , ease = ease
+        }
 
 
 setDefaultInterpolation : Property -> Property
