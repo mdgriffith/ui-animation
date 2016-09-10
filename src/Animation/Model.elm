@@ -1535,23 +1535,25 @@ stepInterpolation dtms motion =
         case interpolationToUse of
             AtSpeed { perSecond } ->
                 let
-                    (newPos, finished) =
+                    ( newPos, finished ) =
                         if motion.position < motion.target then
-                            let 
-                                new = motion.position + (perSecond * (dtms / 1000)
+                            let
+                                new =
+                                    motion.position + (perSecond * (dtms / 1000))
                             in
                                 ( new
                                 , new >= motion.target
                                 )
                         else
-                            let 
-                                new = motion.position - (perSecond * (dtms / 1000)
+                            let
+                                new =
+                                    motion.position - (perSecond * (dtms / 1000))
                             in
                                 ( new
                                 , new <= motion.target
                                 )
                 in
-                    if finished then 
+                    if finished then
                         { motion
                             | position = motion.target
                             , velocity = 0.0
