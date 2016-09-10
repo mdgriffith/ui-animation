@@ -1270,6 +1270,14 @@ zipPropertiesGreedy listA listB =
         props
 
 
+wrapAngle =
+    2 * pi
+
+
+negativeWrapAngle =
+    -1 * wrapAngle
+
+
 {-| Move one step in our interpolation strategy.
 
 For angle properties, wrap at 360 and -360 degrees.
@@ -1302,23 +1310,23 @@ step dt props =
                             stepInterpolation dt motion
 
                         wrapped =
-                            if stepped.position >= 360 && stepped.target >= 360 then
+                            if stepped.position >= wrapAngle && stepped.target >= wrapAngle then
                                 { stepped
-                                    | position = stepped.position - 360
-                                    , target = stepped.target - 360
+                                    | position = stepped.position - wrapAngle
+                                    , target = stepped.target - wrapAngle
                                 }
-                            else if stepped.position <= -360 && stepped.target <= -360 then
+                            else if stepped.position <= negativeWrapAngle && stepped.target <= negativeWrapAngle then
                                 { stepped
-                                    | position = stepped.position + 360
-                                    , target = stepped.target + 360
+                                    | position = stepped.position + wrapAngle
+                                    , target = stepped.target + wrapAngle
                                 }
-                            else if stepped.position >= 360 then
+                            else if stepped.position >= wrapAngle then
                                 { stepped
-                                    | position = stepped.position - 360
+                                    | position = stepped.position - wrapAngle
                                 }
-                            else if stepped.position <= -360 then
+                            else if stepped.position <= negativeWrapAngle then
                                 { stepped
-                                    | position = stepped.position + 360
+                                    | position = stepped.position + wrapAngle
                                 }
                             else
                                 stepped
