@@ -493,7 +493,8 @@ refreshTiming now timing =
 
         -- dt is set to one frame (16.66) if it is a large dt,
         -- because that usually means that the user
-        -- left the browser window and came back.
+        -- left the browser window and came back,
+        -- or the animation subscription has stopped calling for updates for a while and started running again
         -- Perhaps a better way of handling it would be to modify the spring equations
         -- so that they can handle large dts without overshooting their target.
         -- The initial frame is where current == 0, which is also primed

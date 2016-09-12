@@ -11,8 +11,8 @@ import Animation.Model exposing (..)
 
 {-| An Animation State that also tracks your `Msg` type.
 -}
-type State msg
-    = Animation msg
+type alias State msg =
+    Animation msg
 
 
 {-| An update that returns the updated animation as well as any messages sent, in `Cmd` form.
