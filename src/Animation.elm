@@ -409,9 +409,9 @@ extractInitialWait steps =
 It is throttled based on whether the current animation is running or not.
 
 -}
-subscription : List (Animation msgA) -> (Msg -> msgB) -> Sub msgB
-subscription states msg =
-    if List.any isRunning states then
+subscription : Animation msgA -> (Msg -> msgB) -> Sub msgB
+subscription (Animation state) msg =
+    if state.running then
         Sub.map msg (AnimationFrame.times Tick)
     else
         Sub.none
