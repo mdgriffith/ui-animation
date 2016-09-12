@@ -124,6 +124,7 @@ module Animation
 @docs custom, exactly
 
 
+
 -}
 
 import Color exposing (Color)
@@ -781,7 +782,7 @@ custom name value unit =
     Property name (initMotion value unit)
 
 
-{-| Advanced: Set a non-numerical to an exact value.  For example
+{-| Set a non-numerical to an exact value.  For example
 
 ```
 Animation.set
@@ -1459,21 +1460,6 @@ curveTo { control, point } =
             , initMotion (snd point) ""
             )
         }
-
-
-
---continueCurve : QuadraticCurve -> PathCommand
---continueCurve points =
---    Smooth <| pointsProp points
---continueCurveTo : QuadraticCurve -> PathCommand
---continueCurveTo points =
---    SmoothTo <| pointsProp points
---continueQuadratic : List ( Float, Float ) -> PathCommand
---continueQuadratic points =
---    SmoothQuadratic <| pointsProp points
---continueQuadraticTo : List ( Float, Float ) -> PathCommand
---continueQuadraticTo points =
---    SmoothQuadraticTo <| pointsProp points
 
 
 type alias Arc =

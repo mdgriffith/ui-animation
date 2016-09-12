@@ -491,17 +491,17 @@ refreshTiming now timing =
         dt =
             now - timing.current
 
-        -- dt is set to 0 if it is a large dt,
+        -- dt is set to one frame (16.66) if it is a large dt,
         -- because that usually means that the user
         -- left the browser window and came back.
         -- Perhaps a better way of handling it would be to modify the spring equations
         -- so that they can handle large dts without overshooting their target.
-        -- The initial frame is where current == 0, in which case dt should be 0 as well.
+        -- The initial frame is where current == 0, which is also primed
     in
         { current = now
         , dt =
-            if (dt > 300) || (timing.current == 0) then
-                0.0
+            if dt > 34 || timing.current == 0 then
+                16.666
             else
                 dt
         }
@@ -1520,9 +1520,7 @@ vTolerance =
     0.1
 
 
-{-| We define duration/easing in terms of a super powerful spring
-that is attached to where the easing function says the value should be.
-
+{-|
 -}
 stepInterpolation : Time -> Motion -> Motion
 stepInterpolation dtms motion =
@@ -1570,19 +1568,19 @@ stepInterpolation dtms motion =
                         dtms / 1000
 
                     fspring =
-                        -stiffness * (motion.position - motion.target)
+                        stiffness * (motion.target - motion.position)
 
                     fdamper =
-                        -damping * motion.velocity
+                        (-1 * damping) * motion.velocity
 
                     a =
                         fspring + fdamper
 
                     newVelocity =
-                        motion.velocity + a * dt
+                        motion.velocity + (a * dt)
 
                     newPos =
-                        motion.position + newVelocity * dt
+                        motion.position + (newVelocity * dt)
 
                     dx =
                         abs (motion.target - newPos)
