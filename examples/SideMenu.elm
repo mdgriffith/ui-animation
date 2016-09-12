@@ -10,7 +10,7 @@ import Color exposing (green, complement)
 
 
 type alias Model =
-    { style : Animation.State Msg
+    { style : Animation.State
     }
 
 
@@ -63,7 +63,7 @@ update action model =
             ( { model
                 | style = Animation.update animMsg model.style
               }
-            , Animation.getCmds [ model.style ]
+            , Cmd.none
             )
 
 
@@ -109,7 +109,7 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Animation.subscription [ model.style ] Animate
+    Animation.subscription model.style Animate
 
 
 init : ( Model, Cmd Msg )

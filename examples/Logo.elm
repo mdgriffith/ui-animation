@@ -12,7 +12,7 @@ import Color exposing (purple, green, rgb)
 
 
 type alias Model =
-    { styles : List (Animation.State Action)
+    { styles : List Animation.State
     , index : Int
     }
 
@@ -113,7 +113,7 @@ update action model =
             ( { model
                 | styles = List.map (Animation.update time) model.styles
               }
-            , Animation.getCmds model.styles
+            , Cmd.none
             )
 
 
@@ -146,11 +146,6 @@ view model =
         ]
 
 
-subscriptions : Model -> Sub Action
-subscriptions model =
-    Animation.subscription model.styles Animate
-
-
 init : ( Model, Cmd Action )
 init =
     ( { styles = List.map Animation.style polygons
@@ -167,3 +162,8 @@ main =
         , update = update
         , subscriptions = subscriptions
         }
+
+
+subscriptions model =
+    Sub.batch <|
+        List.map (\style -> Animation.subscription style Animate) model.styles

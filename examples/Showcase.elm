@@ -9,6 +9,8 @@ import Animation exposing (px, turn)
 import Color exposing (rgb, rgba)
 import Time exposing (Time, second)
 import Ease
+import Svg
+import Svg.Attributes
 
 
 type alias Model =
@@ -18,23 +20,21 @@ type alias Model =
 type alias Widget =
     { label : String
     , action : Msg
-    , style : Animation.State Msg
+    , style : Animation.State
     }
 
 
 type Msg
-    = RotateWidget
-    | RotateAllAxis
-    | ChangeColors
-    | ChangeMultipleColors
-    | FadeOutFadeIn
-    | FadeOut
-    | Loopty
-    | Spring
+    = RotateWidget Int
+    | RotateAllAxis Int
+    | ChangeColors Int
+    | ChangeMultipleColors Int
+    | FadeOutFadeIn Int
+    | Shadow Int
     | Animate Animation.Msg
 
 
-onStyle : (Animation.State Msg -> Animation.State Msg) -> Widget -> Widget
+onStyle : (Animation.State -> Animation.State) -> Widget -> Widget
 onStyle styleFn widget =
     { widget | style = styleFn widget.style }
 
@@ -54,48 +54,28 @@ onIndex i list fn =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update action model =
     case action of
-        RotateWidget ->
-            ( model, Cmd.none )
-
-        --( { model
-        --    | rotateWidget =
-        --        Dict.update
-        --            (toString RotateWidget)
-        --            identity
-        --            model.styles
-        --  }
-        --, Cmd.none
-        --)
-        RotateAllAxis ->
+        RotateWidget i ->
             ( { model
                 | widgets =
-                    onIndex 1 model.widgets <|
+                    onIndex i model.widgets <|
                         onStyle
                             (Animation.interrupt
-                                [ Animation.loop
-                                    [ Animation.to [ Animation.rotate (turn 1) ]
-                                    ]
+                                [ Animation.to [ Animation.rotate (turn 1) ]
                                 ]
                             )
               }
             , Cmd.none
             )
 
-        Loopty ->
+        RotateAllAxis i ->
             ( { model
                 | widgets =
-                    onIndex 2 model.widgets <|
+                    onIndex i model.widgets <|
                         onStyle
                             (Animation.interrupt
                                 [ Animation.to
-                                    [ Animation.rotate (turn -0.5)
-                                    , Animation.rotate (turn 0.5)
-                                    , Animation.translateY (px 50)
-                                    ]
-                                , Animation.to
-                                    [ Animation.rotate (turn -1.0)
-                                    , Animation.rotate (turn 1)
-                                    , Animation.translateY (px 0)
+                                    [ Animation.rotateY (turn 1)
+                                    , Animation.rotateZ (turn 1)
                                     ]
                                 ]
                             )
@@ -103,44 +83,10 @@ update action model =
             , Cmd.none
             )
 
-        Spring ->
+        ChangeColors i ->
             ( { model
                 | widgets =
-                    onIndex 3 model.widgets <|
-                        onStyle
-                            (Animation.interrupt
-                                [ Animation.to
-                                    [ Animation.scale 1.5
-                                    ]
-                                , Animation.to
-                                    [ Animation.scale 1.0
-                                    ]
-                                ]
-                            )
-              }
-            , Cmd.none
-            )
-
-        ChangeColors ->
-            ( { model
-                | widgets =
-                    onIndex 4 model.widgets <|
-                        onStyle
-                            (Animation.interrupt
-                                [ Animation.to
-                                    [ Animation.backgroundColor (rgba 100 100 100 1.0)
-                                    , Animation.borderColor (rgba 100 100 100 1.0)
-                                    ]
-                                ]
-                            )
-              }
-            , Cmd.none
-            )
-
-        ChangeMultipleColors ->
-            ( { model
-                | widgets =
-                    onIndex 5 model.widgets <|
+                    onIndex i model.widgets <|
                         onStyle
                             (Animation.interrupt
                                 [ Animation.to
@@ -148,8 +94,8 @@ update action model =
                                     , Animation.borderColor (rgba 100 100 100 1.0)
                                     ]
                                 , Animation.to
-                                    [ Animation.backgroundColor (rgba 178 201 14 1.0)
-                                    , Animation.borderColor (rgba 178 201 14 1.0)
+                                    [ Animation.backgroundColor Color.white
+                                    , Animation.borderColor Color.white
                                     ]
                                 ]
                             )
@@ -157,10 +103,36 @@ update action model =
             , Cmd.none
             )
 
-        FadeOutFadeIn ->
+        ChangeMultipleColors i ->
             ( { model
                 | widgets =
-                    onIndex 6 model.widgets <|
+                    onIndex i model.widgets <|
+                        onStyle
+                            (Animation.interrupt <|
+                                List.map
+                                    (\color ->
+                                        Animation.to
+                                            [ Animation.backgroundColor color
+                                            , Animation.borderColor color
+                                            ]
+                                    )
+                                    [ Color.red
+                                    , Color.orange
+                                    , Color.yellow
+                                    , Color.green
+                                    , Color.blue
+                                    , Color.purple
+                                    , Color.white
+                                    ]
+                            )
+              }
+            , Cmd.none
+            )
+
+        FadeOutFadeIn i ->
+            ( { model
+                | widgets =
+                    onIndex i model.widgets <|
                         onStyle
                             (Animation.interrupt
                                 [ Animation.to
@@ -175,17 +147,35 @@ update action model =
             , Cmd.none
             )
 
-        FadeOut ->
+        Shadow i ->
             ( { model
                 | widgets =
-                    onIndex 7 model.widgets <|
+                    onIndex i model.widgets <|
                         onStyle
                             (Animation.interrupt
                                 [ Animation.to
-                                    [ Animation.opacity 0
+                                    [ Animation.translateX (px 100)
+                                    , Animation.translateY (px 100)
+                                    , Animation.scale 1.2
+                                    , Animation.shadow
+                                        { offsetX = 50
+                                        , offsetY = 55
+                                        , blur = 15
+                                        , size = 0
+                                        , color = rgba 0 0 0 0.1
+                                        }
                                     ]
-                                , Animation.set
-                                    [ Animation.display Animation.none
+                                , Animation.to
+                                    [ Animation.translateX (px 0)
+                                    , Animation.translateY (px 0)
+                                    , Animation.scale 1
+                                    , Animation.shadow
+                                        { offsetX = 0
+                                        , offsetY = 1
+                                        , size = 0
+                                        , blur = 2
+                                        , color = rgba 0 0 0 0.1
+                                        }
                                     ]
                                 ]
                             )
@@ -200,8 +190,7 @@ update action model =
                         (onStyle (Animation.update time))
                         model.widgets
               }
-            , Animation.getCmds
-                (List.map .style model.widgets)
+            , Cmd.none
             )
 
 
@@ -209,14 +198,28 @@ view : Model -> Html Msg
 view model =
     div
         [ style
-            [ ( "position", "relative" )
+            [ ( "position", "absolute" )
             , ( "left", "0px" )
             , ( "top", "0px" )
             , ( "width", "100%" )
             , ( "height", "100%" )
+            , ( "background-color", "#f0f0f0" )
             ]
         ]
-        (List.map viewWidget model.widgets)
+        [ div
+            [ style
+                [ ( "display", "flex" )
+                , ( "flex-direction", "row" )
+                , ( "flex-wrap", "wrap" )
+                , ( "justify-content", "center" )
+                , ( "position", "absolute" )
+                , ( "left", "0px" )
+                , ( "top", "0px" )
+                , ( "width", "100%" )
+                ]
+            ]
+            (List.map viewWidget model.widgets)
+        ]
 
 
 viewWidget : Widget -> Html Msg
@@ -225,18 +228,12 @@ viewWidget widget =
         (Animation.render widget.style
             ++ [ style
                     [ ( "position", "relative" )
-                    , ( "display", "inline-block" )
-                    , ( "margin", "50px 50px" )
-                    , ( "padding", "25px" )
                     , ( "text-align", "center" )
-                    , ( "width", "100px" )
-                    , ( "height", "100px" )
-                    , ( "color", "white" )
                     , ( "cursor", "pointer" )
                     , ( "border-style", "solid" )
                     , ( "vertical-align", "middle" )
                     ]
-               , onClick (widget.action)
+               , onMouseOver (widget.action)
                ]
         )
         [ text widget.label ]
@@ -248,52 +245,56 @@ init =
         initialWidgetStyle =
             Animation.style
                 [ Animation.display Animation.inlineBlock
+                , Animation.width (px 100)
+                , Animation.height (px 100)
+                , Animation.margin (px 50)
+                , Animation.padding (px 25)
                 , Animation.rotate (turn 0.0)
                 , Animation.rotateX (turn 0.0)
                 , Animation.rotateY (turn 0.0)
-                , Animation.translateY (px 0)
+                , Animation.rotateZ (turn 0.0)
                 , Animation.translateX (px 0)
+                , Animation.translateY (px 0)
                 , Animation.rotate (turn 0)
                 , Animation.opacity 1
-                , Animation.backgroundColor (rgba 58 40 69 1.0)
-                , Animation.color (rgba 255 255 255 1.0)
+                , Animation.backgroundColor Color.white
+                , Animation.color Color.black
                 , Animation.scale 1.0
-                , Animation.borderColor (rgb 136 96 161)
+                , Animation.borderColor Color.white
                 , Animation.borderWidth (px 4)
                 , Animation.borderRadius (px 8)
+                , Animation.shadow
+                    { offsetX = 0
+                    , offsetY = 1
+                    , size = 0
+                    , blur = 2
+                    , color = rgba 0 0 0 0.1
+                    }
                 ]
     in
         ( { widgets =
                 [ { label = "Rotate"
-                  , action = RotateWidget
+                  , action = RotateWidget 0
                   , style = initialWidgetStyle
                   }
                 , { label = "Rotate in All Kinds of Ways"
-                  , action = RotateAllAxis
+                  , action = RotateAllAxis 1
                   , style = initialWidgetStyle
                   }
                 , { label = "Change Colors"
-                  , action = ChangeColors
+                  , action = ChangeColors 2
                   , style = initialWidgetStyle
                   }
                 , { label = "Change Through Multiple Colors"
-                  , action = ChangeMultipleColors
+                  , action = ChangeMultipleColors 3
                   , style = initialWidgetStyle
                   }
                 , { label = "Fade Out Fade In"
-                  , action = FadeOutFadeIn
+                  , action = FadeOutFadeIn 4
                   , style = initialWidgetStyle
                   }
-                , { label = "Fade Out and display:none"
-                  , action = FadeOut
-                  , style = initialWidgetStyle
-                  }
-                , { label = "Loop About"
-                  , action = Loopty
-                  , style = initialWidgetStyle
-                  }
-                , { label = "Use a Spring"
-                  , action = Spring
+                , { label = "Have a Shadow"
+                  , action = Shadow 5
                   , style = initialWidgetStyle
                   }
                 ]
@@ -304,9 +305,10 @@ init =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Animation.subscription
-        (List.map .style model.widgets)
-        Animate
+    Sub.batch <|
+        List.map
+            (\widget -> Animation.subscription widget.style Animate)
+            model.widgets
 
 
 main =

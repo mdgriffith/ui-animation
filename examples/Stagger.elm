@@ -9,8 +9,14 @@ import Animation
 
 
 type alias Model =
-    { widgets : List (Animation.State Msg)
+    { menuItems : List MenuItem
     , open : Bool
+    }
+
+
+type alias MenuItem =
+    { style : Animation.State
+    , title : String
     }
 
 
@@ -31,113 +37,144 @@ update action model =
                 update Show model
 
         Show ->
-            ( { model
-                | open = True
-                , widgets =
+            let
+                newMenuItems =
                     List.indexedMap
-                        (\i widget ->
-                            Animation.interrupt
-                                [ Animation.wait (toFloat i * 0.05 * second)
-                                , Animation.to [ Animation.left (Animation.px 300) ]
-                                ]
-                                widget
+                        (\i item ->
+                            { item
+                                | style =
+                                    Animation.interrupt
+                                        [ Animation.wait (toFloat i * 0.05 * second)
+                                        , Animation.to [ Animation.left (Animation.px 200) ]
+                                        ]
+                                        item.style
+                            }
                         )
-                        model.widgets
-              }
-            , Cmd.none
-            )
+                        model.menuItems
+            in
+                ( { model
+                    | open = True
+                    , menuItems = newMenuItems
+                  }
+                , Cmd.none
+                )
 
         Hide ->
-            ( { model
-                | open = False
-                , widgets =
+            let
+                newMenuItems =
                     List.indexedMap
-                        (\i widget ->
-                            Animation.interrupt
-                                [ Animation.wait (toFloat i * 0.05 * second)
-                                , Animation.to [ Animation.left (Animation.px 150) ]
-                                ]
-                                widget
+                        (\i item ->
+                            { item
+                                | style =
+                                    Animation.interrupt
+                                        [ Animation.wait (toFloat i * 0.05 * second)
+                                        , Animation.to [ Animation.left (Animation.px 0) ]
+                                        ]
+                                        item.style
+                            }
                         )
-                        model.widgets
-              }
-            , Cmd.none
-            )
+                        model.menuItems
+            in
+                ( { model
+                    | open = False
+                    , menuItems = newMenuItems
+                  }
+                , Cmd.none
+                )
 
         Animate time ->
-            ( { model
-                | widgets = List.map (Animation.update time) model.widgets
-              }
-            , Animation.getCmds model.widgets
-            )
+            let
+                updatedMenuItems =
+                    List.map
+                        (\item ->
+                            { item
+                                | style = Animation.update time item.style
+                            }
+                        )
+                        model.menuItems
+            in
+                ( { model
+                    | menuItems = updatedMenuItems
+                  }
+                , Cmd.none
+                )
 
 
 view : Model -> Html Msg
 view model =
     div
-        [ onClick Toggle
-        , style
-            [ ( "position", "relative" )
-            , ( "left", "0px" )
-            , ( "top", "0px" )
-            , ( "width", "300px" )
-            , ( "margin-top", "250px" )
-            , ( "margin-left", "auto" )
-            , ( "margin-right", "auto" )
-            , ( "padding", "25px" )
-            , ( "text-align", "center" )
-            , ( "border-radius", "5px" )
-            , ( "background-color", "#AAA" )
-            , ( "cursor", "pointer" )
+        []
+        [ div
+            [ style
+                [ ( "width", "200px" )
+                , ( "height", "100%" )
+                , ( "position", "fixed" )
+                , ( "top", "0px" )
+                , ( "left", "-200px" )
+                , ( "display", "flex" )
+                , ( "flex-direction", "column" )
+                ]
             ]
-        ]
-        [ h1 [ style [ ( "padding", "25px" ) ] ]
-            [ text "Click me!" ]
-        , p [] [ text "This example shows staggered animations" ]
-        , div [] (List.map viewWidget model.widgets)
+          <|
+            (div
+                [ style
+                    [ ( "position", "relative" )
+                    , ( "left", "200px" )
+                    , ( "margin", "30px" )
+                    , ( "cursor", "pointer" )
+                    ]
+                , onClick Toggle
+                ]
+                [ text <|
+                    if model.open then
+                        "hide menu"
+                    else
+                        "show menu"
+                ]
+            )
+                :: (List.map viewItem model.menuItems)
         ]
 
 
-viewWidget : Animation.State Msg -> Html Msg
-viewWidget anim =
+viewItem : MenuItem -> Html Msg
+viewItem anim =
     div
-        (Animation.render anim
-            ++ [ style <|
-                    [ ( "border-radius", "20px" )
-                    , ( "width", "40px" )
-                    , ( "height", "40px" )
-                    , ( "position", "fixed" )
-                    , ( "background-color", "#4e9a06" )
-                    , ( "z-index", "0" )
-                    , ( "display", "inline-block" )
-                    , ( "margin", "10px" )
-                    , ( "text-align", "center" )
-                    , ( "line-height", "40px" )
+        (Animation.render anim.style
+            ++ [ style
+                    [ ( "position", "relative" )
+                    , ( "padding", "10px 30px" )
+                    , ( "width", "140px" )
                     ]
                ]
         )
-        []
+        [ text anim.title ]
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { widgets = List.map initWidget [0..10]
+    ( { menuItems = List.map initMenuItem [0..10]
       , open = False
       }
     , Cmd.none
     )
 
 
-initWidget i =
-    Animation.style
-        [ Animation.left (Animation.px 150.0)
-        , Animation.top (Animation.px (i * 45.0))
-        ]
+initMenuItem : Float -> MenuItem
+initMenuItem i =
+    { style =
+        Animation.style
+            [ Animation.left (Animation.px 0.0)
+            ]
+    , title = "menu item " ++ toString i
+    }
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Animation.subscription model.widgets Animate
+    Sub.batch <|
+        List.map
+            (\item -> Animation.subscription item.style Animate)
+            model.menuItems
 
 
 main =
