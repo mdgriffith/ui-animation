@@ -94,6 +94,9 @@ Here's generally how we compose animations.
 
 
 
-
+# Examples
+ * Gears - [Demo](https://mdgriffith.github.io/elm-style-animation/3.0.0/Gears.html) - [Code](https://github.com/mdgriffith/ui-animation/blob/master/examples/Gears.elm)
+ * Menu - [Demo](https://mdgriffith.github.io/elm-style-animation/3.0.0/FlowerMenu.html) - [Code](https://github.com/mdgriffith/elm-html-animation-flower-menu/blob/master/FlowerMenu.elm)
+ * Logo - [Demo](https://mdgriffith.github.io/elm-style-animation/3.0.0/Logo.html) - [Code](https://github.com/mdgriffith/ui-animation/blob/master/examples/Logo.elm)
 
 
