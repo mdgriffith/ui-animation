@@ -433,10 +433,7 @@ mapPathMotion fn cmd =
                 Close
 
 
-
---update : Msg -> Animation msg -> ( Animation msg, Cmd msg )
-
-
+updateAnimation : Tick -> Animation msg -> ( Animation msg, Cmd msg )
 updateAnimation (Tick now) (Animation model) =
     let
         -- set current and dt time
@@ -491,13 +488,12 @@ refreshTiming now timing =
         dt =
             now - timing.current
 
-        -- dt is set to one frame (16.66) if it is a large dt,
-        -- because that usually means that the user
-        -- left the browser window and came back,
-        -- or the animation subscription has stopped calling for updates for a while and started running again
-        -- Perhaps a better way of handling it would be to modify the spring equations
-        -- so that they can handle large dts without overshooting their target.
-        -- The initial frame is where current == 0, which is also primed
+        -- dt is set to one frame (16.66) if it is a large dt(more than 2 frames),
+        -- A large dt means one of the following:
+        --    * the user left the browser window and came back
+        --    * the animation subscription has stopped calling for updates for a while and started running again
+        --
+        -- We also have a special case when timing.current == 0, which is happens at startup.
     in
         { current = now
         , dt =
@@ -1226,11 +1222,15 @@ setPathTarget cmd targetCmd =
                 Close
 
 
-{-| We match two sets of properties
+{-| We match two sets of properties.
+
+If a property is trying to be animated but has no initial value, a warning is logged.
+
+Order from the original list is preserved.
 
 -}
 zipPropertiesGreedy : List Property -> List Property -> List ( Property, Maybe Property )
-zipPropertiesGreedy listA listB =
+zipPropertiesGreedy initialProps newTargetProps =
     let
         propertyMatch prop1 prop2 =
             propertyName prop1 == propertyName prop2
@@ -1244,21 +1244,23 @@ zipPropertiesGreedy listA listB =
 
                         Just a ->
                             let
-                                matchingB =
-                                    List.head <| List.filter (propertyMatch a) stackB
+                                ( matchingBs, nonMatchingBs ) =
+                                    List.partition (propertyMatch a) stackB
                             in
                                 ( List.drop 1 stackA
-                                , case matchingB of
-                                    Nothing ->
-                                        stackB
+                                , case matchingBs of
+                                    [] ->
+                                        nonMatchingBs
 
-                                    Just b ->
-                                        List.drop 1 stackB
-                                , result ++ [ ( a, matchingB ) ]
+                                    b :: remainingBs ->
+                                        remainingBs ++ nonMatchingBs
+                                , ( a, List.head matchingBs ) :: result
+                                  -- This is in reverse to avoid creating a new list each iteration
+                                  -- We instead have to do a reverse later.
                                 )
                 )
-                ( listA, listB, [] )
-                (List.repeat (List.length listA) 0)
+                ( initialProps, newTargetProps, [] )
+                (List.repeat (List.length initialProps) 0)
 
         _ =
             List.map
@@ -1268,7 +1270,7 @@ zipPropertiesGreedy listA listB =
                 )
                 warnings
     in
-        props
+        List.reverse props
 
 
 wrapAngle =

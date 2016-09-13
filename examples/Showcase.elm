@@ -51,135 +51,120 @@ onIndex i list fn =
         list
 
 
+onWidgetStyle : Model -> Int -> (a -> a) -> Model
+onWidgetStyle model index fn =
+    { model
+        | widgets =
+            onIndex i model.widgets <|
+                onStyle fn
+    }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update action model =
     case action of
         RotateWidget i ->
-            ( { model
-                | widgets =
-                    onIndex i model.widgets <|
-                        onStyle
-                            (Animation.interrupt
-                                [ Animation.to [ Animation.rotate (turn 1) ]
-                                , Animation.set [ Animation.rotate (turn 0) ]
-                                ]
-                            )
-              }
+            ( onWidgetStyle model i <|
+                (Animation.interrupt
+                    [ Animation.to [ Animation.rotate (turn 1) ]
+                    , Animation.set [ Animation.rotate (turn 0) ]
+                    ]
+                )
             , Cmd.none
             )
 
         RotateAllAxis i ->
-            ( { model
-                | widgets =
-                    onIndex i model.widgets <|
-                        onStyle
-                            (Animation.interrupt
-                                [ Animation.to
-                                    [ Animation.rotate3d (turn 1) (turn 1) (turn 1)
-                                    ]
-                                , Animation.set
-                                    [ Animation.rotate3d (turn 1) (turn 1) (turn 1) ]
-                                ]
-                            )
-              }
+            ( onWidgetStyle model i <|
+                (Animation.interrupt
+                    [ Animation.to
+                        [ Animation.rotate3d (turn 1) (turn 1) (turn 1)
+                        ]
+                    , Animation.set
+                        [ Animation.rotate3d (turn 1) (turn 1) (turn 1) ]
+                    ]
+                )
             , Cmd.none
             )
 
         ChangeColors i ->
-            ( { model
-                | widgets =
-                    onIndex i model.widgets <|
-                        onStyle
-                            (Animation.interrupt
-                                [ Animation.to
-                                    [ Animation.backgroundColor (rgba 100 100 100 1.0)
-                                    , Animation.borderColor (rgba 100 100 100 1.0)
-                                    ]
-                                , Animation.to
-                                    [ Animation.backgroundColor Color.white
-                                    , Animation.borderColor Color.white
-                                    ]
-                                ]
-                            )
-              }
+            ( onWidgetStyle model i <|
+                (Animation.interrupt
+                    [ Animation.to
+                        [ Animation.backgroundColor (rgba 100 100 100 1.0)
+                        , Animation.borderColor (rgba 100 100 100 1.0)
+                        ]
+                    , Animation.to
+                        [ Animation.backgroundColor Color.white
+                        , Animation.borderColor Color.white
+                        ]
+                    ]
+                )
             , Cmd.none
             )
 
         ChangeMultipleColors i ->
-            ( { model
-                | widgets =
-                    onIndex i model.widgets <|
-                        onStyle
-                            (Animation.interrupt <|
-                                List.map
-                                    (\color ->
-                                        Animation.to
-                                            [ Animation.backgroundColor color
-                                            , Animation.borderColor color
-                                            ]
-                                    )
-                                    [ Color.red
-                                    , Color.orange
-                                    , Color.yellow
-                                    , Color.green
-                                    , Color.blue
-                                    , Color.purple
-                                    , Color.white
-                                    ]
-                            )
-              }
+            ( onWidgetStyle model i <|
+                (Animation.interrupt <|
+                    List.map
+                        (\color ->
+                            Animation.to
+                                [ Animation.backgroundColor color
+                                , Animation.borderColor color
+                                ]
+                        )
+                        [ Color.red
+                        , Color.orange
+                        , Color.yellow
+                        , Color.green
+                        , Color.blue
+                        , Color.purple
+                        , Color.white
+                        ]
+                )
             , Cmd.none
             )
 
         FadeOutFadeIn i ->
-            ( { model
-                | widgets =
-                    onIndex i model.widgets <|
-                        onStyle
-                            (Animation.interrupt
-                                [ Animation.to
-                                    [ Animation.opacity 0
-                                    ]
-                                , Animation.to
-                                    [ Animation.opacity 1
-                                    ]
-                                ]
-                            )
-              }
+            ( onWidgetStyle model i <|
+                (Animation.interrupt
+                    [ Animation.to
+                        [ Animation.opacity 0
+                        ]
+                    , Animation.to
+                        [ Animation.opacity 1
+                        ]
+                    ]
+                )
             , Cmd.none
             )
 
         Shadow i ->
-            ( { model
-                | widgets =
-                    onIndex i model.widgets <|
-                        onStyle
-                            (Animation.interrupt
-                                [ Animation.to
-                                    [ Animation.translate (px 100) (px 100)
-                                    , Animation.scale 1.2
-                                    , Animation.shadow
-                                        { offsetX = 50
-                                        , offsetY = 55
-                                        , blur = 15
-                                        , size = 0
-                                        , color = rgba 0 0 0 0.1
-                                        }
-                                    ]
-                                , Animation.to
-                                    [ Animation.translate (px 0) (px 0)
-                                    , Animation.scale 1
-                                    , Animation.shadow
-                                        { offsetX = 0
-                                        , offsetY = 1
-                                        , size = 0
-                                        , blur = 2
-                                        , color = rgba 0 0 0 0.1
-                                        }
-                                    ]
-                                ]
-                            )
-              }
+            ( onWidgetStyle model i <|
+                (Animation.interrupt
+                    [ Animation.to
+                        [ Animation.translate (px 100) (px 100)
+                        , Animation.scale 1.2
+                        , Animation.shadow
+                            { offsetX = 50
+                            , offsetY = 55
+                            , blur = 15
+                            , size = 0
+                            , color = rgba 0 0 0 0.1
+                            }
+                        ]
+                    , Animation.to
+                        [ Animation.translate (px 0) (px 0)
+                        , Animation.scale 1
+                        , Animation.shadow
+                            { offsetX = 0
+                            , offsetY = 1
+                            , size = 0
+                            , blur = 2
+                            , color = rgba 0 0 0 0.1
+                            }
+                        ]
+                    ]
+                )
             , Cmd.none
             )
 

@@ -121,14 +121,15 @@ module Animation
 
 -}
 
-import Color exposing (Color)
-import Time exposing (Time, second)
-import AnimationFrame
-import String
 import Html
 import Html.Attributes
 import Svg.Attributes
+import Color exposing (Color)
+import Time exposing (Time, second)
+import String
 import Task
+import AnimationFrame
+import List.Extra
 import Animation.Model exposing (..)
 
 
@@ -322,6 +323,30 @@ initialState current =
         }
 
 
+warnForDoubleListedProperties : List Property -> List Property
+warnForDoubleListedProperties props =
+    let
+        _ =
+            List.filter isTransformation props
+                |> List.map propertyName
+                |> List.sort
+                |> List.Extra.groupWhile (==)
+                |> List.map
+                    (\propGroup ->
+                        case List.head propGroup of
+                            Nothing ->
+                                ""
+
+                            Just name ->
+                                if List.length propGroup > 1 then
+                                    Debug.log "elm-style-animation" ("The \"" ++ name ++ "\" css property is listed more than once.  Only the last instance will be used.")
+                                else
+                                    ""
+                    )
+    in
+        props
+
+
 {-| Set an initial style for an animation.
 
 Uses standard defaults for interpolation
@@ -329,7 +354,7 @@ Uses standard defaults for interpolation
 -}
 style : List Property -> Animation msg
 style props =
-    initialState <| List.map setDefaultInterpolation props
+    initialState <| List.map setDefaultInterpolation (warnForDoubleListedProperties props)
 
 
 {-| Set an initial style for an animation and override the standard default for interpolation.
@@ -337,7 +362,7 @@ style props =
 -}
 styleWith : Interpolation -> List Property -> Animation msg
 styleWith interp props =
-    initialState <| List.map (mapToMotion (\m -> { m | interpolation = interp })) props
+    initialState <| List.map (mapToMotion (\m -> { m | interpolation = interp })) (warnForDoubleListedProperties props)
 
 
 {-| Set an initial style for an animation and specify the interpolation to be used for each property.
@@ -346,7 +371,11 @@ Any property not listed will receive interpolation based on the standard default
 -}
 styleWithEach : List ( Interpolation, Property ) -> Animation msg
 styleWithEach props =
-    initialState <| List.map (\( interp, prop ) -> mapToMotion (\m -> { m | interpolation = interp }) prop) props
+    let
+        _ =
+            warnForDoubleListedProperties <| List.map snd props
+    in
+        initialState <| List.map (\( interp, prop ) -> mapToMotion (\m -> { m | interpolation = interp }) prop) props
 
 
 {-| Add an animation to the queue, execiting once the current animation finishes
@@ -575,25 +604,13 @@ lengthUnitName unit =
             "pc"
 
 
-{-| I know this is very bizarre, why don't we just specify a Float in each type constructor of LengthUnit?
-
-Length is only used in the assigning function before LengthUnit is converted into a string and added to a `Motion` type.
-
-I can get the value and the length unit via unpacking the tuple instead of having a separate function to get the value.
+{-|
 -}
 type Length
     = Length Float LengthUnit
 
 
-
---angleUnitName : AngleUnit -> String
---angleUnitName unit =
---    case unit of
---        Rad ->
---            "rad"
-
-
-{-| Similar weirdness, see `Length`
+{-|
 -}
 type Angle
     = Radians Float
@@ -1487,18 +1504,16 @@ sepia x =
     custom "sepia" x "%"
 
 
-pointsProp : List ( Float, Float ) -> List ( Motion, Motion )
-pointsProp pnts =
-    List.map (\( x, y ) -> ( initMotion x "", initMotion y "" )) pnts
-
-
 {-| Rendered as an attribute because it can't be represented as a style.
 -}
 points : List ( Float, Float ) -> Property
 points pnts =
     Points <|
-        pointsProp <|
-            alignStartingPoint pnts
+        List.map
+            (\( x, y ) ->
+                ( initMotion x "", initMotion y "" )
+            )
+            (alignStartingPoint pnts)
 
 
 {-| -}
@@ -1663,20 +1678,11 @@ isTransformation : Property -> Bool
 isTransformation prop =
     List.member (propertyName prop)
         [ "rotate"
-        , "rotateX"
-        , "rotateY"
-        , "rotateZ"
         , "rotate3d"
         , "transform"
         , "transform3d"
-        , "translateX"
-        , "translateY"
-        , "translateZ"
         , "scale"
         , "scale3d"
-        , "scaleX"
-        , "scaleY"
-        , "scaleZ"
         ]
 
 
