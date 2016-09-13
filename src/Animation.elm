@@ -64,17 +64,11 @@ module Animation
         , stroke
         , strokeWidth
         , scale
-        , scaleX
-        , scaleY
-        , scaleZ
+        , scale3d
         , rotate
-        , rotateX
-        , rotateY
-        , rotateZ
+        , rotate3d
         , translate
-        , translateX
-        , translateY
-        , translateZ
+        , translate3d
         , points
         , path
         , move
@@ -409,9 +403,9 @@ extractInitialWait steps =
 It is throttled based on whether the current animation is running or not.
 
 -}
-subscription : Animation msgA -> (Msg -> msgB) -> Sub msgB
-subscription (Animation state) msg =
-    if state.running then
+subscription : (Msg -> msgB) -> List (Animation msgA) -> Sub msgB
+subscription msg states =
+    if List.any isRunning states then
         Sub.map msg (AnimationFrame.times Tick)
     else
         Sub.none
@@ -587,25 +581,22 @@ Length is only used in the assigning function before LengthUnit is converted int
 
 I can get the value and the length unit via unpacking the tuple instead of having a separate function to get the value.
 -}
-type alias Length =
-    ( Float, LengthUnit )
+type Length
+    = Length Float LengthUnit
 
 
-type AngleUnit
-    = Rad
 
-
-angleUnitName : AngleUnit -> String
-angleUnitName unit =
-    case unit of
-        Rad ->
-            "rad"
+--angleUnitName : AngleUnit -> String
+--angleUnitName unit =
+--    case unit of
+--        Rad ->
+--            "rad"
 
 
 {-| Similar weirdness, see `Length`
 -}
-type alias Angle =
-    ( Float, AngleUnit )
+type Angle
+    = Radians Float
 
 
 initMotion : Float -> String -> Motion
@@ -626,115 +617,115 @@ initMotion position unit =
 {-| -}
 deg : Float -> Angle
 deg a =
-    ( (a / 360) * (2 * pi), Rad )
+    Radians <| (a / 360) * (2 * pi)
 
 
 {-| -}
 grad : Float -> Angle
 grad a =
-    ( (a / 400) * (2 * pi), Rad )
+    Radians <| (a / 400) * (2 * pi)
 
 
 {-| -}
 rad : Float -> Angle
 rad a =
-    ( a, Rad )
+    Radians a
 
 
 {-| -}
 turn : Float -> Angle
 turn a =
-    ( a * (2 * pi), Rad )
+    Radians <| a * (2 * pi)
 
 
 {-| -}
 px : Float -> Length
 px x =
-    ( x, Px )
+    Length x Px
 
 
 {-| -}
 percent : Float -> Length
 percent x =
-    ( x, Percent )
+    Length x Percent
 
 
 {-| -}
 rem : Float -> Length
 rem x =
-    ( x, Rem )
+    Length x Rem
 
 
 {-| -}
 em : Float -> Length
 em x =
-    ( x, Em )
+    Length x Em
 
 
 {-| -}
 ex : Float -> Length
 ex x =
-    ( x, Ex )
+    Length x Ex
 
 
 {-| -}
 ch : Float -> Length
 ch x =
-    ( x, Ch )
+    Length x Ch
 
 
 {-| -}
 vh : Float -> Length
 vh x =
-    ( x, Vh )
+    Length x Vh
 
 
 {-| -}
 vw : Float -> Length
 vw x =
-    ( x, Vw )
+    Length x Vw
 
 
 {-| -}
 vmin : Float -> Length
 vmin x =
-    ( x, Vmin )
+    Length x Vmin
 
 
 {-| -}
 vmax : Float -> Length
 vmax x =
-    ( x, Vmax )
+    Length x Vmax
 
 
 {-| -}
 mm : Float -> Length
 mm x =
-    ( x, Mm )
+    Length x Mm
 
 
 {-| -}
 cm : Float -> Length
 cm x =
-    ( x, Cm )
+    Length x Cm
 
 
 {-| -}
 inches : Float -> Length
 inches x =
-    ( x, In )
+    Length x In
 
 
 {-| -}
 pt : Float -> Length
 pt x =
-    ( x, Pt )
+    Length x Pt
 
 
 {-| -}
 pc : Float -> Length
 pc x =
-    ( x, Pc )
+    Length x Pc
 
 
 length : String -> Float -> String -> Property
@@ -865,199 +856,199 @@ listItem =
 
 {-| -}
 height : Length -> Property
-height ( x, len ) =
+height (Length x len) =
     length "height" x (lengthUnitName len)
 
 
 {-| -}
 width : Length -> Property
-width ( x, len ) =
+width (Length x len) =
     length "width" x (lengthUnitName len)
 
 
 {-| -}
 left : Length -> Property
-left ( x, len ) =
+left (Length x len) =
     length "left" x (lengthUnitName len)
 
 
 {-| -}
 top : Length -> Property
-top ( x, len ) =
+top (Length x len) =
     length "top" x (lengthUnitName len)
 
 
 {-| -}
 right : Length -> Property
-right ( x, len ) =
+right (Length x len) =
     length "right" x (lengthUnitName len)
 
 
 {-| -}
 bottom : Length -> Property
-bottom ( x, len ) =
+bottom (Length x len) =
     length "bottom" x (lengthUnitName len)
 
 
 {-| -}
 maxHeight : Length -> Property
-maxHeight ( x, len ) =
+maxHeight (Length x len) =
     length "max-height" x (lengthUnitName len)
 
 
 {-| -}
 maxWidth : Length -> Property
-maxWidth ( x, len ) =
+maxWidth (Length x len) =
     length "max-width" x (lengthUnitName len)
 
 
 {-| -}
 minHeight : Length -> Property
-minHeight ( x, len ) =
+minHeight (Length x len) =
     length "min-height" x (lengthUnitName len)
 
 
 {-| -}
 minWidth : Length -> Property
-minWidth ( x, len ) =
+minWidth (Length x len) =
     length "min-width" x (lengthUnitName len)
 
 
 {-| -}
 padding : Length -> Property
-padding ( x, len ) =
+padding (Length x len) =
     length "padding" x (lengthUnitName len)
 
 
 {-| -}
 paddingLeft : Length -> Property
-paddingLeft ( x, len ) =
+paddingLeft (Length x len) =
     length "padding-left" x (lengthUnitName len)
 
 
 {-| -}
 paddingRight : Length -> Property
-paddingRight ( x, len ) =
+paddingRight (Length x len) =
     length "padding-right" x (lengthUnitName len)
 
 
 {-| -}
 paddingTop : Length -> Property
-paddingTop ( x, len ) =
+paddingTop (Length x len) =
     length "padding-top" x (lengthUnitName len)
 
 
 {-| -}
 paddingBottom : Length -> Property
-paddingBottom ( x, len ) =
+paddingBottom (Length x len) =
     length "padding-bottom" x (lengthUnitName len)
 
 
 {-| -}
 margin : Length -> Property
-margin ( x, len ) =
+margin (Length x len) =
     length "margin" x (lengthUnitName len)
 
 
 {-| -}
 marginLeft : Length -> Property
-marginLeft ( x, len ) =
+marginLeft (Length x len) =
     length "margin-left" x (lengthUnitName len)
 
 
 {-| -}
 marginRight : Length -> Property
-marginRight ( x, len ) =
+marginRight (Length x len) =
     length "margin-right" x (lengthUnitName len)
 
 
 {-| -}
 marginTop : Length -> Property
-marginTop ( x, len ) =
+marginTop (Length x len) =
     length "margin-top" x (lengthUnitName len)
 
 
 {-| -}
 marginBottom : Length -> Property
-marginBottom ( x, len ) =
+marginBottom (Length x len) =
     length "margin-bottom" x (lengthUnitName len)
 
 
 {-| -}
 borderWidth : Length -> Property
-borderWidth ( x, len ) =
+borderWidth (Length x len) =
     length "border-width" x (lengthUnitName len)
 
 
 {-| -}
 borderLeftWidth : Length -> Property
-borderLeftWidth ( x, len ) =
+borderLeftWidth (Length x len) =
     length "border-left-width" x (lengthUnitName len)
 
 
 {-| -}
 borderRightWidth : Length -> Property
-borderRightWidth ( x, len ) =
+borderRightWidth (Length x len) =
     length "border-right-width" x (lengthUnitName len)
 
 
 {-| -}
 borderTopWidth : Length -> Property
-borderTopWidth ( x, len ) =
+borderTopWidth (Length x len) =
     length "border-top-width" x (lengthUnitName len)
 
 
 {-| -}
 borderBottomWidth : Length -> Property
-borderBottomWidth ( x, len ) =
+borderBottomWidth (Length x len) =
     length "border-bottom-width" x (lengthUnitName len)
 
 
 {-| -}
 borderRadius : Length -> Property
-borderRadius ( x, len ) =
+borderRadius (Length x len) =
     length "border-radius" x (lengthUnitName len)
 
 
 {-| -}
 borderTopLeftRadius : Length -> Property
-borderTopLeftRadius ( x, len ) =
+borderTopLeftRadius (Length x len) =
     length "border-top-left-radius" x (lengthUnitName len)
 
 
 {-| -}
 borderTopRightRadius : Length -> Property
-borderTopRightRadius ( x, len ) =
+borderTopRightRadius (Length x len) =
     length "border-top-right-radius" x (lengthUnitName len)
 
 
 {-| -}
 borderBottomLeftRadius : Length -> Property
-borderBottomLeftRadius ( x, len ) =
+borderBottomLeftRadius (Length x len) =
     length "border-bottom-left-radius" x (lengthUnitName len)
 
 
 {-| -}
 borderBottomRightRadius : Length -> Property
-borderBottomRightRadius ( x, len ) =
+borderBottomRightRadius (Length x len) =
     length "border-bottom-right-radius" x (lengthUnitName len)
 
 
 {-| -}
 letterSpacing : Length -> Property
-letterSpacing ( x, len ) =
+letterSpacing (Length x len) =
     length "letter-spacing" x (lengthUnitName len)
 
 
 {-| -}
 lineHeight : Length -> Property
-lineHeight ( x, len ) =
+lineHeight (Length x len) =
     length "line-height" x (lengthUnitName len)
 
 
 {-| -}
 backgroundPosition : Length -> Length -> Property
-backgroundPosition ( x, len1 ) ( y, len2 ) =
+backgroundPosition (Length x len1) (Length y len2) =
     length2 "background-position" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 )
 
 
@@ -1080,39 +1071,15 @@ borderColor c =
 
 
 {-| -}
-transformOrigin : Length -> Length -> Length -> Property
-transformOrigin ( x, len1 ) ( y, len2 ) ( z, len3 ) =
-    length3 "transform-origin" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 ) ( z, lengthUnitName len3 )
-
-
-{-| -}
 translate : Length -> Length -> Property
-translate ( x, len1 ) ( y, len2 ) =
+translate (Length x len1) (Length y len2) =
     length2 "translate" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 )
 
 
 {-| -}
 translate3d : Length -> Length -> Length -> Property
-translate3d ( x, len1 ) ( y, len2 ) ( z, len3 ) =
+translate3d (Length x len1) (Length y len2) (Length z len3) =
     length3 "translate3d" ( x, lengthUnitName len1 ) ( y, lengthUnitName len2 ) ( z, lengthUnitName len3 )
-
-
-{-| -}
-translateX : Length -> Property
-translateX ( x, len ) =
-    length "translateX" x (lengthUnitName len)
-
-
-{-| -}
-translateY : Length -> Property
-translateY ( x, len ) =
-    length "translateY" x (lengthUnitName len)
-
-
-{-| -}
-translateZ : Length -> Property
-translateZ ( x, len ) =
-    length "translateZ" x (lengthUnitName len)
 
 
 {-| -}
@@ -1121,82 +1088,25 @@ scale x =
     custom "scale" x ""
 
 
-
--- scale3d : Float -> Float -> Float -> Property
--- scale3d x y z =
---     length3 "scale3d" x y z
-
-
 {-| -}
-scaleX : Float -> Property
-scaleX x =
-    custom "scaleX" x ""
-
-
-{-| -}
-scaleY : Float -> Property
-scaleY x =
-    custom "scaleY" x ""
-
-
-{-| -}
-scaleZ : Float -> Property
-scaleZ x =
-    custom "scaleZ" x ""
-
-
-
--- Internally, angles are always in degrees which is why we throw away the angleUnit here.  It was already checked.
+scale3d : Float -> Float -> Float -> Property
+scale3d x y z =
+    Property3 "scale3d"
+        (initMotion x "")
+        (initMotion y "")
+        (initMotion z "")
 
 
 {-| -}
 rotate : Angle -> Property
-rotate ( x, angle ) =
+rotate (Radians x) =
     AngleProperty "rotate" (initMotion x "rad")
 
 
-
--- rotate3d : Float -> Float -> Float -> Angle -> Property
-
-
 {-| -}
-rotateX : Angle -> Property
-rotateX ( x, angle ) =
-    AngleProperty "rotateX" (initMotion x "rad")
-
-
-{-| -}
-rotateY : Angle -> Property
-rotateY ( x, angle ) =
-    AngleProperty "rotateY" (initMotion x "rad")
-
-
-{-| -}
-rotateZ : Angle -> Property
-rotateZ ( x, angle ) =
-    AngleProperty "rotateZ" (initMotion x "rad")
-
-
-
--- skew : Angle -> Angle -> Property
-
-
-{-| -}
-skewX : Angle -> Property
-skewX ( x, angle ) =
-    AngleProperty "skewX" (initMotion x "rad")
-
-
-{-| -}
-skewY : Angle -> Property
-skewY ( x, angle ) =
-    AngleProperty "skewY" (initMotion x "rad")
-
-
-{-| -}
-perspective : Float -> Property
-perspective x =
-    custom "perspective" x ""
+rotate3d : Angle -> Angle -> Angle -> Property
+rotate3d (Radians x) (Radians y) (Radians z) =
+    length3 "rotate3d" ( x, "rad" ) ( y, "rad" ) ( z, "rad" )
 
 
 type alias Shadow =
@@ -1517,7 +1427,7 @@ filterUrl url =
 {-| Create a CSS blur filter, these stack with other filters.
 -}
 blur : Length -> Property
-blur ( x, len ) =
+blur (Length x len) =
     length "blur" x (lengthUnitName len)
 
 
@@ -1552,7 +1462,7 @@ greyscale x =
 {-| Create a CSS hue-rotation filter, these stack with other filters.
 -}
 hueRotate : Angle -> Property
-hueRotate ( x, angle ) =
+hueRotate (Radians x) =
     AngleProperty "hue-rotate" (initMotion x "rad")
 
 
@@ -1767,10 +1677,6 @@ isTransformation prop =
         , "scaleX"
         , "scaleY"
         , "scaleZ"
-        , "skew"
-        , "skewX"
-        , "skewY"
-        , "perspective"
         ]
 
 

@@ -109,7 +109,7 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Animation.subscription model.style Animate
+    Animation.subscription Animate [ model.style ]
 
 
 init : ( Model, Cmd Msg )

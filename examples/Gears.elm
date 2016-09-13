@@ -5,16 +5,10 @@ import Html.App
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Animation exposing (turn, px)
-import Gears
-import Style
-import Mouse
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Color exposing (black, rgb)
 import Animation exposing (turn, px)
-
-
 
 
 type Msg
@@ -31,11 +25,9 @@ type alias Model =
     }
 
 
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update message model =
     case message of
-
         Animate animMsg ->
             let
                 annulus =
@@ -113,18 +105,18 @@ main =
         , update = update
         , subscriptions =
             (\model ->
-                Sub.batch
-                    [ Animation.subscription model.annulus Animate
-                    , Animation.subscription model.sun Animate
-                    , Animation.subscription model.smallPlanet Animate
-                    , Animation.subscription model.largePlanet Animate
-                    , Animation.subscription model.mediumPlanet Animate
+                Animation.subscription Animate
+                    [ model.annulus
+                    , model.sun
+                    , model.smallPlanet
+                    , model.largePlanet
+                    , model.mediumPlanet
                     ]
             )
         }
 
 
-  (=>) =
+(=>) =
     (,)
 
 
@@ -205,6 +197,7 @@ beginInitialRotate gears =
                 [ Animation.loop
                     [ Animation.toWith (Animation.speed { perSecond = 1 * factor })
                         [ Animation.rotate (turn 1) ]
+                    , Animation.set [ Animation.rotate (turn 0) ]
                     ]
                 ]
                 gears.annulus
@@ -214,6 +207,7 @@ beginInitialRotate gears =
                 [ Animation.loop
                     [ Animation.toWith (Animation.speed { perSecond = 3.3636 * factor })
                         [ Animation.rotate (turn -1) ]
+                    , Animation.set [ Animation.rotate (turn 0) ]
                     ]
                 ]
                 gears.sun
@@ -223,6 +217,7 @@ beginInitialRotate gears =
                 [ Animation.loop
                     [ Animation.toWith (Animation.speed { perSecond = 5.28571428571429 * factor })
                         [ Animation.rotate (turn 1) ]
+                    , Animation.set [ Animation.rotate (turn 0) ]
                     ]
                 ]
                 gears.smallPlanet
@@ -232,6 +227,7 @@ beginInitialRotate gears =
                 [ Animation.loop
                     [ Animation.toWith (Animation.speed { perSecond = 3.3636 * factor })
                         [ Animation.rotate (turn 1) ]
+                    , Animation.set [ Animation.rotate (turn 0) ]
                     ]
                 ]
                 gears.mediumPlanet
@@ -241,6 +237,7 @@ beginInitialRotate gears =
                 [ Animation.loop
                     [ Animation.toWith (Animation.speed { perSecond = 1.94736842105263 * factor })
                         [ Animation.rotate (turn 1) ]
+                    , Animation.set [ Animation.rotate (turn 0) ]
                     ]
                 ]
                 gears.largePlanet
@@ -250,6 +247,7 @@ beginInitialRotate gears =
                 [ Animation.loop
                     [ Animation.toWith (Animation.speed { perSecond = 1 * factor })
                         [ Animation.rotate (turn -1) ]
+                    , Animation.set [ Animation.rotate (turn 0) ]
                     ]
                 ]
                 gears.global
@@ -261,4 +259,3 @@ beginInitialRotate gears =
         , largePlanet = largePlanet
         , global = global
         }
-

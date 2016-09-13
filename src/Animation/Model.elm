@@ -1280,8 +1280,6 @@ negativeWrapAngle =
 
 
 {-| Move one step in our interpolation strategy.
-
-For angle properties, wrap at 360 and -360 degrees.
 -}
 step : Time -> List Property -> List Property
 step dt props =
@@ -1306,33 +1304,7 @@ step dt props =
                         (stepInterpolation dt motion3)
 
                 AngleProperty name motion ->
-                    let
-                        stepped =
-                            stepInterpolation dt motion
-
-                        wrapped =
-                            if stepped.position >= wrapAngle && stepped.target >= wrapAngle then
-                                { stepped
-                                    | position = stepped.position - wrapAngle
-                                    , target = stepped.target - wrapAngle
-                                }
-                            else if stepped.position <= negativeWrapAngle && stepped.target <= negativeWrapAngle then
-                                { stepped
-                                    | position = stepped.position + wrapAngle
-                                    , target = stepped.target + wrapAngle
-                                }
-                            else if stepped.position >= wrapAngle then
-                                { stepped
-                                    | position = stepped.position - wrapAngle
-                                }
-                            else if stepped.position <= negativeWrapAngle then
-                                { stepped
-                                    | position = stepped.position + wrapAngle
-                                }
-                            else
-                                stepped
-                    in
-                        AngleProperty name wrapped
+                    AngleProperty name (stepInterpolation dt motion)
 
                 ColorProperty name red green blue alpha ->
                     ColorProperty name

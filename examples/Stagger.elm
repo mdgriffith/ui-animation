@@ -171,10 +171,8 @@ initMenuItem i =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch <|
-        List.map
-            (\item -> Animation.subscription item.style Animate)
-            model.menuItems
+    Animation.subscription Animate <|
+        List.map .style model.menuItems
 
 
 main =

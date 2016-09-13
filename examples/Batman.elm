@@ -467,5 +467,5 @@ main =
         { init = init
         , view = view
         , update = update
-        , subscriptions = (\model -> Animation.subscription model.style Animate)
+        , subscriptions = (\model -> Animation.subscription Animate [ model.style ])
         }

@@ -61,6 +61,7 @@ update action model =
                         onStyle
                             (Animation.interrupt
                                 [ Animation.to [ Animation.rotate (turn 1) ]
+                                , Animation.set [ Animation.rotate (turn 0) ]
                                 ]
                             )
               }
@@ -74,9 +75,10 @@ update action model =
                         onStyle
                             (Animation.interrupt
                                 [ Animation.to
-                                    [ Animation.rotateY (turn 1)
-                                    , Animation.rotateZ (turn 1)
+                                    [ Animation.rotate3d (turn 1) (turn 1) (turn 1)
                                     ]
+                                , Animation.set
+                                    [ Animation.rotate3d (turn 1) (turn 1) (turn 1) ]
                                 ]
                             )
               }
@@ -154,8 +156,7 @@ update action model =
                         onStyle
                             (Animation.interrupt
                                 [ Animation.to
-                                    [ Animation.translateX (px 100)
-                                    , Animation.translateY (px 100)
+                                    [ Animation.translate (px 100) (px 100)
                                     , Animation.scale 1.2
                                     , Animation.shadow
                                         { offsetX = 50
@@ -166,8 +167,7 @@ update action model =
                                         }
                                     ]
                                 , Animation.to
-                                    [ Animation.translateX (px 0)
-                                    , Animation.translateY (px 0)
+                                    [ Animation.translate (px 0) (px 0)
                                     , Animation.scale 1
                                     , Animation.shadow
                                         { offsetX = 0
@@ -250,11 +250,8 @@ init =
                 , Animation.margin (px 50)
                 , Animation.padding (px 25)
                 , Animation.rotate (turn 0.0)
-                , Animation.rotateX (turn 0.0)
-                , Animation.rotateY (turn 0.0)
-                , Animation.rotateZ (turn 0.0)
-                , Animation.translateX (px 0)
-                , Animation.translateY (px 0)
+                , Animation.rotate3d (turn 0.0) (turn 0.0) (turn 0.0)
+                , Animation.translate (px 0) (px 0)
                 , Animation.rotate (turn 0)
                 , Animation.opacity 1
                 , Animation.backgroundColor Color.white
@@ -305,10 +302,8 @@ init =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch <|
-        List.map
-            (\widget -> Animation.subscription widget.style Animate)
-            model.widgets
+    Animation.subscription Animate <|
+        List.map .style model.widgets
 
 
 main =

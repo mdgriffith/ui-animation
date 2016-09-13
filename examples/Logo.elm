@@ -165,5 +165,5 @@ main =
 
 
 subscriptions model =
-    Sub.batch <|
-        List.map (\style -> Animation.subscription style Animate) model.styles
+    Animation.subscription Animate
+        model.styles
