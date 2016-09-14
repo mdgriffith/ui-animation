@@ -327,7 +327,7 @@ warnForDoubleListedProperties : List Property -> List Property
 warnForDoubleListedProperties props =
     let
         _ =
-            List.filter isTransformation props
+            List.filter (not isTransformation) props
                 |> List.map propertyName
                 |> List.sort
                 |> List.Extra.groupWhile (==)
