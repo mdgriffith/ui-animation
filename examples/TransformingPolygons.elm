@@ -8,19 +8,18 @@ import Html.Events exposing (..)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Animation
-import Animation.List
 import Color exposing (purple, green, rgb)
 
 
 type alias Model =
-    { shape : Animation.State Action
+    { shape : Animation.State
     , index : Int
     }
 
 
 type Action
     = SwitchTo Int
-    | Animate Float
+    | Animate Animation.Msg
 
 
 palette =
@@ -79,9 +78,51 @@ polygons =
 
 
 greyedOut =
-    List.map
-        (\x -> fst <| Animation.tick 0 <| Animation.interrupt [ Animation.set [ Animation.fill <| Color.rgb 230 230 230 ] ] x)
-        (List.map Animation.style polygons)
+    List.map Animation.style
+        [ [ Animation.points
+                [ ( 161.649, 152.782 )
+                , ( 231.514, 82.916 )
+                , ( 91.783, 82.916 )
+                ]
+          , Animation.fill <| Color.rgb 230 230 230
+          ]
+        , [ Animation.points
+                [ ( 8.867, 0 )
+                , ( 79.241, 70.375 )
+                , ( 232.213, 70.375 )
+                , ( 161.838, 0 )
+                ]
+          , Animation.fill <| Color.rgb 230 230 230
+          ]
+        , [ Animation.points
+                [ ( 323.298, 143.724 )
+                , ( 323.298, 0 )
+                , ( 179.573, 0 )
+                ]
+          , Animation.fill <| Color.rgb 230 230 230
+          ]
+        , [ Animation.points
+                [ ( 152.781, 161.649 )
+                , ( 0, 8.868 )
+                , ( 0, 314.432 )
+                ]
+          , Animation.fill <| Color.rgb 230 230 230
+          ]
+        , [ Animation.points
+                [ ( 255.522, 246.655 )
+                , ( 323.298, 314.432 )
+                , ( 323.298, 178.879 )
+                ]
+          , Animation.fill <| Color.rgb 230 230 230
+          ]
+        , [ Animation.points
+                [ ( 161.649, 170.517 )
+                , ( 8.869, 323.298 )
+                , ( 314.43, 323.298 )
+                ]
+          , Animation.fill <| Color.rgb 230 230 230
+          ]
+        ]
 
 
 update : Action -> Model -> ( Model, Cmd Action )
@@ -107,15 +148,11 @@ update action model =
                         ( model, Cmd.none )
 
         Animate time ->
-            let
-                ( shape, cmd ) =
-                    Animation.tick time model.shape
-            in
-                ( { model
-                    | shape = shape
-                  }
-                , cmd
-                )
+            ( { model
+                | shape = Animation.update time model.shape
+              }
+            , Cmd.none
+            )
 
 
 view : Model -> Html Action
@@ -132,7 +169,8 @@ view model =
             ]
           <|
             [ rect
-                [ fill "#7FD13B"
+                [ fill "rgb(230,230,230)"
+                  --"#7FD13B"
                 , x "192.99"
                 , y "107.392"
                 , width "107.676"
@@ -152,7 +190,7 @@ view model =
 
 subscriptions : Model -> Sub Action
 subscriptions model =
-    Animation.subscription model.shape Animate
+    Animation.subscription Animate [ model.shape ]
 
 
 main =

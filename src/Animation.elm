@@ -1679,8 +1679,8 @@ isTransformation prop =
     List.member (propertyName prop)
         [ "rotate"
         , "rotate3d"
-        , "transform"
-        , "transform3d"
+        , "translate"
+        , "translate3d"
         , "scale"
         , "scale3d"
         ]

@@ -51,11 +51,11 @@ onIndex i list fn =
         list
 
 
-onWidgetStyle : Model -> Int -> (a -> a) -> Model
+onWidgetStyle : Model -> Int -> (Animation.State -> Animation.State) -> Model
 onWidgetStyle model index fn =
     { model
         | widgets =
-            onIndex i model.widgets <|
+            onIndex index model.widgets <|
                 onStyle fn
     }
 
