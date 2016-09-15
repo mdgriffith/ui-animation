@@ -24,12 +24,10 @@ styles =
     { open =
         [ Animation.left (px 0.0)
         , Animation.opacity 1.0
-        , Animation.blur (px 5)
         ]
     , closed =
-        [ Animation.left (px 0.0)
-        , Animation.opacity 1.0
-        , Animation.blur (px 0)
+        [ Animation.left (px -200.0)
+        , Animation.opacity 0
         ]
     }
 

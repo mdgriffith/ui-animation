@@ -1,6 +1,6 @@
 module Animation.Messenger exposing (State, update, send)
 
-{-| Send a Msg at any point in an animation.
+{-| Import this module if you want the ability to send a Msg at any point during your animation.
 
 @docs State, update, send
 
@@ -15,7 +15,7 @@ type alias State msg =
     Animation msg
 
 
-{-| An update that returns the updated animation as well as any messages sent, in `Cmd` form.
+{-| An update that returns the updated animation as well as any messages sent in `Cmd` form.
 -}
 update : Tick -> Animation msg -> ( Animation msg, Cmd msg )
 update tick animation =

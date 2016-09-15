@@ -60,20 +60,29 @@ module Animation
         , shadow
         , textShadow
         , insetShadow
-        , fill
-        , stroke
-        , strokeWidth
         , scale
         , scale3d
         , rotate
         , rotate3d
         , translate
         , translate3d
+        , fill
+        , stroke
+        , strokeWidth
+        , x
+        , y
+        , cx
+        , cy
+        , radius
+        , radiusX
+        , radiusY
         , points
         , path
         , move
         , moveTo
         , close
+        , CubicCurve
+        , QuadraticCurve
         , curve
         , curveTo
         , curve2
@@ -109,7 +118,20 @@ module Animation
 @docs  interrupt, queue, wait, to, toWith, toWithEach, set, repeat, loop, update, style, styleWith, styleWithEach, spring, easing, speed
 
 # Animatable Properties
-@docs opacity, display, inline, inlineBlock, flex, inlineFlex, block, none, top, left, right, bottom, width, height, padding, paddingLeft, paddingRight, paddingTop, paddingBottom, margin, marginLeft, marginRight, marginTop, marginBottom, color, backgroundColor, borderColor, borderWidth, borderLeftWidth, borderRightWidth, borderTopWidth, borderBottomWidth, borderRadius, borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomRightRadius, shadow, textShadow, insetShadow, fill, stroke, strokeWidth, scale, scaleX, scaleY, scaleZ, rotate, rotateX, rotateY, rotateZ, translate, translateX, translateY, translateZ, points, path, move, moveTo, close, curve, curveTo, curve2, curve2To, filterUrl, blur, brightness, contrast, grayscale, greyscale, hueRotate, invert, saturate, sepia
+@docs opacity, display, inline, inlineBlock, flex, inlineFlex, block, none, top, left, right, bottom, width, height, padding, paddingLeft, paddingRight, paddingTop, paddingBottom, margin, marginLeft, marginRight, marginTop, marginBottom, color, backgroundColor, borderColor, borderWidth, borderLeftWidth, borderRightWidth, borderTopWidth, borderBottomWidth, borderRadius, borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomRightRadius, shadow, textShadow, insetShadow
+
+# Transforms
+@docs scale, scale3d, rotate, rotate3d, translate, translate3d
+
+# Animatable CSS Filters
+@docs filterUrl, blur, brightness, contrast, grayscale, greyscale, hueRotate, invert, saturate, sepia
+
+# Animatable Svg Properties
+@docs fill, stroke, strokeWidth, x, y, cx, cy, radius, radiusX, radiusY, points
+
+# Constructing an Svg Path
+@docs path, move, moveTo, close, QuadraticCurve, curve, curveTo, CubicCurve, curve2, curve2To
+
 
 # Units
 @docs px, percent, em, rem, turn, deg, grad, rad
@@ -520,7 +542,7 @@ debug (Animation model) =
         List.concatMap getValueTuple model.style
 
 
-{-|
+{-| Update an animation.
 -}
 update : Msg -> Animation msg -> Animation msg
 update tick animation =
@@ -1244,13 +1266,15 @@ radiusY ry =
     custom "ry" ry ""
 
 
-{-| -}
+{-| To be used with the svg path element.  Renders as the d property.
+-}
 path : List (PathCommand) -> Property
 path commands =
     Path commands
 
 
-{-| -}
+{-|
+-}
 move : Float -> Float -> PathCommand
 move x y =
     Move (initMotion x "") (initMotion y "")
@@ -1298,6 +1322,7 @@ verticalTo x =
     VerticalTo (initMotion x "")
 
 
+{-| -}
 type alias CubicCurve =
     { control1 : ( Float, Float )
     , control2 : ( Float, Float )
@@ -1305,6 +1330,7 @@ type alias CubicCurve =
     }
 
 
+{-| -}
 type alias QuadraticCurve =
     { control : ( Float, Float )
     , point : ( Float, Float )
@@ -1504,7 +1530,7 @@ sepia x =
     custom "sepia" x "%"
 
 
-{-| Rendered as an attribute because it can't be represented as a style.
+{-| Used with the svg polygon element
 -}
 points : List ( Float, Float ) -> Property
 points pnts =
@@ -1620,10 +1646,13 @@ render (Animation model) =
                 []
             else
                 [ ( "transform"
-                  , String.concat <|
+                  , String.join " " <|
                         List.map
                             (\prop ->
-                                propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
+                                if propertyName prop == "rotate3d" then
+                                    render3dRotation prop
+                                else
+                                    propertyName prop ++ "(" ++ (propertyValue prop ", ") ++ ")"
                             )
                             transforms
                   )
@@ -1678,12 +1707,34 @@ isTransformation : Property -> Bool
 isTransformation prop =
     List.member (propertyName prop)
         [ "rotate"
+        , "rotateX"
+        , "rotateY"
+        , "rotateZ"
         , "rotate3d"
         , "translate"
         , "translate3d"
         , "scale"
         , "scale3d"
         ]
+
+
+render3dRotation : Property -> String
+render3dRotation prop =
+    case prop of
+        Property3 _ x y z ->
+            "rotateX("
+                ++ toString x.position
+                ++ x.unit
+                ++ ") rotateY("
+                ++ toString y.position
+                ++ y.unit
+                ++ ") rotateZ("
+                ++ toString z.position
+                ++ z.unit
+                ++ ")"
+
+        _ ->
+            ""
 
 
 isFilter : Property -> Bool
@@ -1903,56 +1954,86 @@ pathCmdValue cmd =
                 "V " ++ toString a.position
 
             Curve { control1, control2, point } ->
-                "c "
-                    ++ (toString <| fst control1)
-                    ++ " "
-                    ++ (toString <| fst control1)
-                    ++ ", "
-                    ++ (toString <| fst control2)
-                    ++ " "
-                    ++ (toString <| fst control2)
-                    ++ ", "
-                    ++ (toString <| fst point)
-                    ++ " "
-                    ++ (toString <| fst point)
-                    ++ " "
+                let
+                    ( c1x, c1y ) =
+                        control1
+
+                    ( c2x, c2y ) =
+                        control2
+
+                    ( p1x, p1y ) =
+                        point
+                in
+                    "c "
+                        ++ (toString <| c1x.position)
+                        ++ " "
+                        ++ (toString <| c1y.position)
+                        ++ ", "
+                        ++ (toString <| c2x.position)
+                        ++ " "
+                        ++ (toString <| c2y.position)
+                        ++ ", "
+                        ++ (toString <| p1x.position)
+                        ++ " "
+                        ++ (toString <| p1y.position)
 
             CurveTo { control1, control2, point } ->
-                "C "
-                    ++ (toString <| fst control1)
-                    ++ " "
-                    ++ (toString <| fst control1)
-                    ++ ", "
-                    ++ (toString <| fst control2)
-                    ++ " "
-                    ++ (toString <| fst control2)
-                    ++ ", "
-                    ++ (toString <| fst point)
-                    ++ " "
-                    ++ (toString <| fst point)
-                    ++ " "
+                let
+                    ( c1x, c1y ) =
+                        control1
+
+                    ( c2x, c2y ) =
+                        control2
+
+                    ( p1x, p1y ) =
+                        point
+                in
+                    "C "
+                        ++ (toString <| c1x.position)
+                        ++ " "
+                        ++ (toString <| c1y.position)
+                        ++ ", "
+                        ++ (toString <| c2x.position)
+                        ++ " "
+                        ++ (toString <| c2y.position)
+                        ++ ", "
+                        ++ (toString <| p1x.position)
+                        ++ " "
+                        ++ (toString <| p1y.position)
 
             Quadratic { control, point } ->
-                "q "
-                    ++ (toString <| fst control)
-                    ++ " "
-                    ++ (toString <| fst control)
-                    ++ ", "
-                    ++ (toString <| fst point)
-                    ++ " "
-                    ++ (toString <| fst point)
-                    ++ " "
+                let
+                    ( c1x, c1y ) =
+                        control
+
+                    ( p1x, p1y ) =
+                        point
+                in
+                    "q "
+                        ++ (toString <| c1x.position)
+                        ++ " "
+                        ++ (toString <| c1y.position)
+                        ++ ", "
+                        ++ (toString <| p1x.position)
+                        ++ " "
+                        ++ (toString <| p1y.position)
 
             QuadraticTo { control, point } ->
-                "Q "
-                    ++ (toString <| fst control)
-                    ++ " "
-                    ++ (toString <| fst control)
-                    ++ ", "
-                    ++ (toString <| fst point)
-                    ++ " "
-                    ++ (toString <| fst point)
-                    ++ " "
+                let
+                    ( c1x, c1y ) =
+                        control
+
+                    ( p1x, p1y ) =
+                        point
+                in
+                    "Q "
+                        ++ (toString <| c1x.position)
+                        ++ " "
+                        ++ (toString <| c1y.position)
+                        ++ ", "
+                        ++ (toString <| p1x.position)
+                        ++ " "
+                        ++ (toString <| p1y.position)
 
             SmoothQuadratic points ->
                 "t " ++ renderPoints points

@@ -66,8 +66,10 @@ update action model =
         RotateWidget i ->
             ( onWidgetStyle model i <|
                 (Animation.interrupt
-                    [ Animation.to [ Animation.rotate (turn 1) ]
-                    , Animation.set [ Animation.rotate (turn 0) ]
+                    [ Animation.to
+                        [ Animation.rotate (turn 1) ]
+                    , Animation.set
+                        [ Animation.rotate (turn 0) ]
                     ]
                 )
             , Cmd.none
@@ -80,7 +82,7 @@ update action model =
                         [ Animation.rotate3d (turn 1) (turn 1) (turn 1)
                         ]
                     , Animation.set
-                        [ Animation.rotate3d (turn 1) (turn 1) (turn 1) ]
+                        [ Animation.rotate3d (turn 0) (turn 0) (turn 0) ]
                     ]
                 )
             , Cmd.none
@@ -237,7 +239,6 @@ init =
                 , Animation.rotate (turn 0.0)
                 , Animation.rotate3d (turn 0.0) (turn 0.0) (turn 0.0)
                 , Animation.translate (px 0) (px 0)
-                , Animation.rotate (turn 0)
                 , Animation.opacity 1
                 , Animation.backgroundColor Color.white
                 , Animation.color Color.black
